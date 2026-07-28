@@ -37,7 +37,6 @@ public class EmployeeController {
     })
     public EmployeeResponse createEmployee(
             @Valid @RequestBody EmployeeRequest request) {
-
         return employeeService.createEmployee(request);
     }
 
