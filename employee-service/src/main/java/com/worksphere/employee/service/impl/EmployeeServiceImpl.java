@@ -1,5 +1,6 @@
 package com.worksphere.employee.service.impl;
 
+import com.worksphere.common.exception.DuplicateResourceException;
 import com.worksphere.common.exception.ResourceNotFoundException;
 import com.worksphere.employee.client.DepartmentFeignClient;
 import com.worksphere.employee.dto.*;
@@ -47,6 +48,14 @@ public class EmployeeServiceImpl implements EmployeeService {
 //        employee.setSalary(request.salary());
 //        employee.setDepartmentId(request.departmentId());
 
+        // Check duplicate email
+        if (employeeRepository.existsByEmail(request.email())) {
+            throw new DuplicateResourceException(
+                    "Employee",
+                    "email",
+                    request.email()
+            );
+        }
 
         // Mapper Added
         Employee employee = EmployeeMapper.toEntity(request);
