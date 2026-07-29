@@ -18,6 +18,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.worksphere.employee.client.DepartmentRestClient;
+import feign.FeignException;
 @Service
 public class EmployeeServiceImpl implements EmployeeService {
 
@@ -57,6 +58,27 @@ public class EmployeeServiceImpl implements EmployeeService {
             );
         }
 
+        // Validate department exists
+        log.info("Before calling department service");
+
+        try {
+
+            departmentFeignClient.getDepartment(request.departmentId());
+
+        } catch (FeignException ex) {
+
+            if (ex.status() == 404) {
+                throw new ResourceNotFoundException(
+                        "Department",
+                        "id",
+                        request.departmentId()
+                );
+            }
+
+            throw new RuntimeException(
+                    "Department Service is unavailable."
+            );
+        }
         // Mapper Added
         Employee employee = EmployeeMapper.toEntity(request);
 
