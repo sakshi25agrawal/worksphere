@@ -2,6 +2,7 @@ package com.worksphere.employee.service.impl;
 
 import com.worksphere.common.exception.DuplicateResourceException;
 import com.worksphere.common.exception.ResourceNotFoundException;
+import com.worksphere.common.exception.ServiceUnavailableException;
 import com.worksphere.employee.client.DepartmentFeignClient;
 import com.worksphere.employee.dto.*;
 import com.worksphere.employee.entity.Employee;
@@ -75,7 +76,7 @@ public class EmployeeServiceImpl implements EmployeeService {
                 );
             }
 
-            throw new RuntimeException(
+            throw new ServiceUnavailableException(
                     "Department Service is unavailable."
             );
         }
