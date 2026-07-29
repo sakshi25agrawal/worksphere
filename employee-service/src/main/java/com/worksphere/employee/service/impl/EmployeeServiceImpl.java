@@ -1,14 +1,15 @@
 package com.worksphere.employee.service.impl;
 
+import com.worksphere.common.exception.DepartmentServiceUnavailableException;
 import com.worksphere.common.exception.DuplicateResourceException;
 import com.worksphere.common.exception.ResourceNotFoundException;
-import com.worksphere.common.exception.ServiceUnavailableException;
 import com.worksphere.employee.client.DepartmentFeignClient;
 import com.worksphere.employee.dto.*;
 import com.worksphere.employee.entity.Employee;
 import com.worksphere.employee.mapper.EmployeeMapper;
 import com.worksphere.employee.repository.EmployeeRepository;
 import com.worksphere.employee.service.EmployeeService;
+import io.github.resilience4j.retry.annotation.Retry;
 import org.springframework.stereotype.Service;
 
 import org.springframework.data.domain.Page;
@@ -20,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.worksphere.employee.client.DepartmentRestClient;
 import feign.FeignException;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 @Service
 public class EmployeeServiceImpl implements EmployeeService {
 
@@ -36,8 +38,14 @@ public class EmployeeServiceImpl implements EmployeeService {
         this.departmentFeignClient = departmentFeignClient;
     }
 
-
-
+    @Retry(
+            name = "departmentService",
+            fallbackMethod = "departmentServiceFallback"
+    )
+    @CircuitBreaker(
+            name = "departmentService",
+            fallbackMethod = "departmentServiceFallback"
+    )
     @Override
     public EmployeeResponse createEmployee(EmployeeRequest request) {
         log.info("Creating employee with email: {}", request.email());
@@ -75,8 +83,8 @@ public class EmployeeServiceImpl implements EmployeeService {
                         request.departmentId()
                 );
             }
-
-            throw new ServiceUnavailableException(
+            log.info("Executing createEmployee()...");
+            throw new DepartmentServiceUnavailableException(
                     "Department Service is unavailable."
             );
         }
@@ -264,5 +272,16 @@ public class EmployeeServiceImpl implements EmployeeService {
         employeeRepository.delete(employee);
 
         log.info("Employee deleted successfully with ID: {}", id);
+    }
+
+    private EmployeeResponse departmentServiceFallback(
+            EmployeeRequest request,
+            Exception ex) {
+
+        log.error("Department Service is unavailable : {}", ex.getMessage());
+
+        throw new DepartmentServiceUnavailableException(
+                "Department Service is temporarily unavailable. Please try again later."
+        );
     }
 }

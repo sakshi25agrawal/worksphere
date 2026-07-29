@@ -35,3 +35,21 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
 
+resilience4j:
+  circuitbreaker:
+    instances:
+      departmentService:
+        registerHealthIndicator: true
+        slidingWindowSize: 5
+        minimumNumberOfCalls: 3
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 2
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+
+  resilience4j:
+    retry:
+      instances:
+        departmentService:
+          max-attempts: 3
+          wait-duration: 2s

@@ -88,9 +88,10 @@ public class GlobalExceptionHandler {
                 .body(response);
     }
 
-    @ExceptionHandler(ServiceUnavailableException.class)
-    public ResponseEntity<ErrorResponse> handleServiceUnavailableException(
-            ServiceUnavailableException ex,
+
+    @ExceptionHandler(DepartmentServiceUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handleDepartmentServiceUnavailableException(
+            DepartmentServiceUnavailableException ex,
             HttpServletRequest request) {
 
         ErrorResponse response = new ErrorResponse(
@@ -101,8 +102,7 @@ public class GlobalExceptionHandler {
                 request.getRequestURI()
         );
 
-        return ResponseEntity
-                .status(HttpStatus.SERVICE_UNAVAILABLE)
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(response);
     }
 }
