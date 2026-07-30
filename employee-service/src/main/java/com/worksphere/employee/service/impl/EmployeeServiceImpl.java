@@ -3,13 +3,13 @@ package com.worksphere.employee.service.impl;
 import com.worksphere.common.exception.DepartmentServiceUnavailableException;
 import com.worksphere.common.exception.DuplicateResourceException;
 import com.worksphere.common.exception.ResourceNotFoundException;
+import com.worksphere.employee.client.DepartmentClientService;
 import com.worksphere.employee.client.DepartmentFeignClient;
 import com.worksphere.employee.dto.*;
 import com.worksphere.employee.entity.Employee;
 import com.worksphere.employee.mapper.EmployeeMapper;
 import com.worksphere.employee.repository.EmployeeRepository;
 import com.worksphere.employee.service.EmployeeService;
-import io.github.resilience4j.retry.annotation.Retry;
 import org.springframework.stereotype.Service;
 
 import org.springframework.data.domain.Page;
@@ -21,31 +21,24 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.worksphere.employee.client.DepartmentRestClient;
 import feign.FeignException;
-import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 @Service
 public class EmployeeServiceImpl implements EmployeeService {
 
     private final EmployeeRepository employeeRepository;
     private final DepartmentRestClient departmentRestClient;
     private final DepartmentFeignClient departmentFeignClient;
+    private final DepartmentClientService departmentClientService;
     private static final Logger log =
             LoggerFactory.getLogger(EmployeeServiceImpl.class);
     public EmployeeServiceImpl(EmployeeRepository employeeRepository,
                                DepartmentRestClient departmentClient,
-                               DepartmentFeignClient departmentFeignClient) {
+                               DepartmentFeignClient departmentFeignClient, DepartmentClientService departmentClientService) {
         this.employeeRepository = employeeRepository;
         this.departmentRestClient = departmentClient;
         this.departmentFeignClient = departmentFeignClient;
+        this.departmentClientService = departmentClientService;
     }
 
-    @Retry(
-            name = "departmentService",
-            fallbackMethod = "departmentServiceFallback"
-    )
-    @CircuitBreaker(
-            name = "departmentService",
-            fallbackMethod = "departmentServiceFallback"
-    )
     @Override
     public EmployeeResponse createEmployee(EmployeeRequest request) {
         log.info("Creating employee with email: {}", request.email());
@@ -70,24 +63,7 @@ public class EmployeeServiceImpl implements EmployeeService {
         // Validate department exists
         log.info("Before calling department service");
 
-        try {
-
-            departmentFeignClient.getDepartment(request.departmentId());
-
-        } catch (FeignException ex) {
-
-            if (ex.status() == 404) {
-                throw new ResourceNotFoundException(
-                        "Department",
-                        "id",
-                        request.departmentId()
-                );
-            }
-            log.info("Executing createEmployee()...");
-            throw new DepartmentServiceUnavailableException(
-                    "Department Service is unavailable."
-            );
-        }
+        departmentClientService.getDepartment(request.departmentId());
         // Mapper Added
         Employee employee = EmployeeMapper.toEntity(request);
 
@@ -274,14 +250,4 @@ public class EmployeeServiceImpl implements EmployeeService {
         log.info("Employee deleted successfully with ID: {}", id);
     }
 
-    private EmployeeResponse departmentServiceFallback(
-            EmployeeRequest request,
-            Exception ex) {
-
-        log.error("Department Service is unavailable : {}", ex.getMessage());
-
-        throw new DepartmentServiceUnavailableException(
-                "Department Service is temporarily unavailable. Please try again later."
-        );
-    }
 }

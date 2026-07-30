@@ -46,10 +46,20 @@ resilience4j:
         waitDurationInOpenState: 10s
         permittedNumberOfCallsInHalfOpenState: 2
         automaticTransitionFromOpenToHalfOpenEnabled: true
+        ignoreExceptions:
+          - com.worksphere.common.exception.RateLimitExceededException
 
-  resilience4j:
-    retry:
-      instances:
-        departmentService:
-          max-attempts: 3
-          wait-duration: 2s
+  retry:
+    instances:
+      departmentService:
+        ignoreExceptions:
+          - com.worksphere.common.exception.RateLimitExceededException
+        max-attempts: 3
+        wait-duration: 2s
+
+  ratelimiter:
+    instances:
+      departmentServiceRateLimiter:
+        limitForPeriod: 3
+        limitRefreshPeriod: 1m
+        timeoutDuration: 0
