@@ -7,6 +7,7 @@ import com.worksphere.employee.client.DepartmentFeignClient;
 import com.worksphere.employee.dto.DepartmentResponse;
 import com.worksphere.employee.service.impl.EmployeeServiceImpl;
 import feign.FeignException;
+import jakarta.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import io.github.resilience4j.bulkhead.BulkheadFullException;
@@ -24,6 +25,7 @@ public class DepartmentResilienceService {
     private final DepartmentFeignClient departmentFeignClient;
     private static final Logger log =
             LoggerFactory.getLogger(EmployeeServiceImpl.class);
+
     public DepartmentResilienceService(DepartmentFeignClient departmentFeignClient) {
         this.departmentFeignClient = departmentFeignClient;
     }
