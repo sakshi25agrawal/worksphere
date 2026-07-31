@@ -1,12 +1,11 @@
 package com.worksphere.employee.service.impl;
 
-import com.worksphere.common.exception.DepartmentServiceUnavailableException;
 import com.worksphere.common.exception.DuplicateResourceException;
 import com.worksphere.common.exception.ResourceNotFoundException;
-import com.worksphere.employee.client.DepartmentClientService;
 import com.worksphere.employee.client.DepartmentFeignClient;
 import com.worksphere.employee.dto.*;
 import com.worksphere.employee.entity.Employee;
+import com.worksphere.employee.gateway.DepartmentGateway;
 import com.worksphere.employee.mapper.EmployeeMapper;
 import com.worksphere.employee.repository.EmployeeRepository;
 import com.worksphere.employee.service.EmployeeService;
@@ -20,23 +19,23 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.worksphere.employee.client.DepartmentRestClient;
-import feign.FeignException;
+
 @Service
 public class EmployeeServiceImpl implements EmployeeService {
 
     private final EmployeeRepository employeeRepository;
     private final DepartmentRestClient departmentRestClient;
     private final DepartmentFeignClient departmentFeignClient;
-    private final DepartmentClientService departmentClientService;
+    private final DepartmentGateway departmentGateway;
     private static final Logger log =
             LoggerFactory.getLogger(EmployeeServiceImpl.class);
     public EmployeeServiceImpl(EmployeeRepository employeeRepository,
                                DepartmentRestClient departmentClient,
-                               DepartmentFeignClient departmentFeignClient, DepartmentClientService departmentClientService) {
+                               DepartmentFeignClient departmentFeignClient, DepartmentGateway departmentGateway) {
         this.employeeRepository = employeeRepository;
         this.departmentRestClient = departmentClient;
         this.departmentFeignClient = departmentFeignClient;
-        this.departmentClientService = departmentClientService;
+        this.departmentGateway = departmentGateway;
     }
 
     @Override
@@ -63,7 +62,7 @@ public class EmployeeServiceImpl implements EmployeeService {
         // Validate department exists
         log.info("Before calling department service");
 
-        departmentClientService.getDepartment(request.departmentId());
+        departmentGateway.getDepartment(request.departmentId());
         // Mapper Added
         Employee employee = EmployeeMapper.toEntity(request);
 
