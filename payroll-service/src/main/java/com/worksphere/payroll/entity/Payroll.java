@@ -32,7 +32,8 @@ public class Payroll {
 
     @Column(
             name = "employee_id",
-            nullable = false
+            nullable = false,
+            unique = true
     )
     private Long employeeId;
 

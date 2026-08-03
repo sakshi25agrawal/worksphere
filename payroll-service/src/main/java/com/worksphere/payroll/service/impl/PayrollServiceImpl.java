@@ -1,50 +1,67 @@
 package com.worksphere.payroll.service.impl;
 
+import com.worksphere.common.exception.PayrollAlreadyExistsException;
 import com.worksphere.common.exception.ResourceNotFoundException;
+import com.worksphere.payroll.dto.request.CreatePayrollRequest;
 import com.worksphere.payroll.dto.response.PayrollResponse;
+import com.worksphere.payroll.entity.Payroll;
+import com.worksphere.payroll.mapper.PayrollMapper;
+import com.worksphere.payroll.repository.PayrollRepository;
 import com.worksphere.payroll.service.PayrollService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 
 @Service
+@RequiredArgsConstructor
 public class PayrollServiceImpl implements PayrollService {
+
+    private final PayrollRepository payrollRepository;
+    private final PayrollMapper payrollMapper;
+
+    @Override
+    public PayrollResponse createPayroll(CreatePayrollRequest request) {
+
+        if (payrollRepository.existsByEmployeeId(request.employeeId())) {
+            throw new PayrollAlreadyExistsException(request.employeeId());
+        }
+
+        Payroll payroll = payrollMapper.toEntity(request);
+
+        payroll.setNetSalary(calculateNetSalary(
+                payroll.getBasicSalary(),
+                payroll.getBonus(),
+                payroll.getTax()
+        ));
+
+        Payroll savedPayroll = payrollRepository.save(payroll);
+
+        return payrollMapper.toResponse(savedPayroll);
+    }
 
     @Override
     public PayrollResponse getPayrollByEmployeeId(Long employeeId) {
 
-        if (employeeId == 101L) {
+        Payroll payroll = payrollRepository
+                .findByEmployeeId(employeeId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Payroll",
+                                "employeeId",
+                                employeeId
+                        ));
 
-            return new PayrollResponse(
-                    1L,
-                    101L,
-                    BigDecimal.valueOf(50000),
-                    BigDecimal.valueOf(5000),
-                    BigDecimal.valueOf(7000),
-                    BigDecimal.valueOf(48000)
-            );
-
-        }
-
-        if (employeeId == 102L) {
-
-            return new PayrollResponse(
-                    2L,
-                    102L,
-                    BigDecimal.valueOf(70000.0),
-                    BigDecimal.valueOf(8000.0),
-                    BigDecimal.valueOf(9000.0),
-                    BigDecimal.valueOf(69000.0)
-            );
-
-        }
-
-        throw new ResourceNotFoundException(
-                "Payroll",
-                "employeeId",
-                employeeId
-        );
-
+        return payrollMapper.toResponse(payroll);
     }
 
+    private BigDecimal calculateNetSalary(
+            BigDecimal basicSalary,
+            BigDecimal bonus,
+            BigDecimal tax) {
+
+        return basicSalary
+                .add(bonus)
+                .subtract(tax);
+    }
 }

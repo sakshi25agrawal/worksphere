@@ -1,7 +1,10 @@
 package com.worksphere.payroll.controller;
 
+import com.worksphere.payroll.dto.request.CreatePayrollRequest;
 import com.worksphere.payroll.dto.response.PayrollResponse;
 import com.worksphere.payroll.service.PayrollService;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,6 +16,15 @@ public class PayrollController {
 
     public PayrollController(PayrollService payrollService) {
         this.payrollService = payrollService;
+    }
+
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public PayrollResponse createPayroll(
+            @Valid @RequestBody CreatePayrollRequest request) {
+
+        return payrollService.createPayroll(request);
     }
 
     @GetMapping("/employee/{employeeId}")

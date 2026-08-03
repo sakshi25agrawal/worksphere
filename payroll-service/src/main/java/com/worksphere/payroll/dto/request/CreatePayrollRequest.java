@@ -11,15 +11,15 @@ public record CreatePayrollRequest(
         Long employeeId,
 
         @NotNull
-        @DecimalMin("0.0")
+        @DecimalMin(value = "0.00", inclusive = true)
         BigDecimal basicSalary,
 
         @NotNull
-        @DecimalMin("0.0")
+        @DecimalMin(value = "0.00", inclusive = true)
         BigDecimal bonus,
 
         @NotNull
-        @DecimalMin("0.0")
+        @DecimalMin(value = "0.00", inclusive = true)
         BigDecimal tax
 
 ) {
