@@ -1,6 +1,6 @@
 package com.worksphere.payroll.controller;
 
-import com.worksphere.payroll.dto.PayrollResponse;
+import com.worksphere.payroll.dto.response.PayrollResponse;
 import com.worksphere.payroll.service.PayrollService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

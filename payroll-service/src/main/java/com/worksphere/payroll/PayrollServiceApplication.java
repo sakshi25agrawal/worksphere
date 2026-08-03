@@ -8,8 +8,7 @@ import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
         scanBasePackages = {
                 "com.worksphere.payroll",
                 "com.worksphere.common"
-        },
-        exclude = DataSourceAutoConfiguration.class
+        }
 )
 public class PayrollServiceApplication {
 

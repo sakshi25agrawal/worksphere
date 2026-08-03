@@ -1,9 +1,11 @@
 package com.worksphere.payroll.service.impl;
 
 import com.worksphere.common.exception.ResourceNotFoundException;
-import com.worksphere.payroll.dto.PayrollResponse;
+import com.worksphere.payroll.dto.response.PayrollResponse;
 import com.worksphere.payroll.service.PayrollService;
 import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
 
 @Service
 public class PayrollServiceImpl implements PayrollService {
@@ -16,10 +18,10 @@ public class PayrollServiceImpl implements PayrollService {
             return new PayrollResponse(
                     1L,
                     101L,
-                    50000.0,
-                    5000.0,
-                    7000.0,
-                    48000.0
+                    BigDecimal.valueOf(50000),
+                    BigDecimal.valueOf(5000),
+                    BigDecimal.valueOf(7000),
+                    BigDecimal.valueOf(48000)
             );
 
         }
@@ -29,10 +31,10 @@ public class PayrollServiceImpl implements PayrollService {
             return new PayrollResponse(
                     2L,
                     102L,
-                    70000.0,
-                    8000.0,
-                    9000.0,
-                    69000.0
+                    BigDecimal.valueOf(70000.0),
+                    BigDecimal.valueOf(8000.0),
+                    BigDecimal.valueOf(9000.0),
+                    BigDecimal.valueOf(69000.0)
             );
 
         }

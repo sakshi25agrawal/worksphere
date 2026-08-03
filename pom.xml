@@ -33,6 +33,9 @@
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
+        <mapstruct.version>1.6.3</mapstruct.version>
+
+        <lombok.version>1.18.38</lombok.version>
     </properties>
 
     <!-- ========================= -->
@@ -61,6 +64,13 @@
                 <scope>import</scope>
             </dependency>
 
+
+            <!-- MapStruct -->
+            <dependency>
+                <groupId>org.mapstruct</groupId>
+                <artifactId>mapstruct</artifactId>
+                <version>${mapstruct.version}</version>
+            </dependency>
         </dependencies>
 
     </dependencyManagement>
@@ -92,6 +102,21 @@
                         <!-- Preserve method parameter names -->
                         <parameters>true</parameters>
 
+                        <annotationProcessorPaths>
+
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                                <version>${lombok.version}</version>
+                            </path>
+
+                            <path>
+                                <groupId>org.mapstruct</groupId>
+                                <artifactId>mapstruct-processor</artifactId>
+                                <version>${mapstruct.version}</version>
+                            </path>
+
+                        </annotationProcessorPaths>
                     </configuration>
 
                 </plugin>

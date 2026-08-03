@@ -1,6 +1,6 @@
 package com.worksphere.payroll.service;
 
-import com.worksphere.payroll.dto.PayrollResponse;
+import com.worksphere.payroll.dto.response.PayrollResponse;
 
 public interface PayrollService {
 
