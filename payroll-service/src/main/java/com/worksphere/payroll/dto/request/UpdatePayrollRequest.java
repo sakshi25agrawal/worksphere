@@ -7,16 +7,16 @@ import java.math.BigDecimal;
 
 public record UpdatePayrollRequest(
 
-        @NotNull
-        @DecimalMin("0.0")
+        @NotNull(message = "Basic salary is mandatory")
+        @DecimalMin(value = "0.00", inclusive = true)
         BigDecimal basicSalary,
 
-        @NotNull
-        @DecimalMin("0.0")
+        @NotNull(message = "Bonus is mandatory")
+        @DecimalMin(value = "0.00", inclusive = true)
         BigDecimal bonus,
 
-        @NotNull
-        @DecimalMin("0.0")
+        @NotNull(message = "Tax is mandatory")
+        @DecimalMin(value = "0.00", inclusive = true)
         BigDecimal tax
 
 ) {
