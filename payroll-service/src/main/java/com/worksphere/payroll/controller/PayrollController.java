@@ -8,6 +8,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/payroll")
 public class PayrollController {
@@ -35,6 +37,13 @@ public class PayrollController {
                 payrollService.getPayrollByEmployeeId(employeeId);
 
         return ResponseEntity.ok(payroll);
+
+    }
+
+    @GetMapping
+    public List<PayrollResponse> getAllPayrolls() {
+
+        return payrollService.getAllPayrolls();
 
     }
 

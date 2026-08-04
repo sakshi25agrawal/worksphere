@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -40,6 +41,16 @@ public class PayrollServiceImpl implements PayrollService {
         return payrollMapper.toResponse(savedPayroll);
     }
 
+    private BigDecimal calculateNetSalary(
+            BigDecimal basicSalary,
+            BigDecimal bonus,
+            BigDecimal tax) {
+
+        return basicSalary
+                .add(bonus)
+                .subtract(tax);
+    }
+
     @Override
     public PayrollResponse getPayrollByEmployeeId(Long employeeId) {
 
@@ -55,13 +66,14 @@ public class PayrollServiceImpl implements PayrollService {
         return payrollMapper.toResponse(payroll);
     }
 
-    private BigDecimal calculateNetSalary(
-            BigDecimal basicSalary,
-            BigDecimal bonus,
-            BigDecimal tax) {
 
-        return basicSalary
-                .add(bonus)
-                .subtract(tax);
+    @Override
+    public List<PayrollResponse> getAllPayrolls() {
+
+        return payrollRepository.findAll()
+                .stream()
+                .map(payrollMapper::toResponse)
+                .toList();
+
     }
 }
