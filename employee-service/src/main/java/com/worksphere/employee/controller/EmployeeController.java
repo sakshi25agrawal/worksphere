@@ -1,9 +1,10 @@
 package com.worksphere.employee.controller;
 
-import com.worksphere.employee.dto.EmployeePageResponse;
-import com.worksphere.employee.dto.EmployeeRequest;
-import com.worksphere.employee.dto.EmployeeResponse;
-import com.worksphere.employee.dto.EmployeeWithDepartmentResponse;
+import com.worksphere.employee.dto.response.EmployeeDetailsResponse;
+import com.worksphere.employee.dto.response.EmployeePageResponse;
+import com.worksphere.employee.dto.request.EmployeeRequest;
+import com.worksphere.employee.dto.response.EmployeeResponse;
+import com.worksphere.employee.dto.response.EmployeeWithDepartmentResponse;
 import com.worksphere.employee.service.EmployeeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -14,8 +15,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import org.springframework.data.domain.Page;
 @RestController
 @RequestMapping("/api/v1/employees")
 @Tag(name = "Employee API", description = "REST APIs for Employee Management")
@@ -117,6 +116,20 @@ public class EmployeeController {
 
         return ResponseEntity.noContent().build();
     }
+
+    @Operation(
+            summary = "Get Employee Profile",
+            description = "Returns employee, department and payroll details."
+    )
+    @GetMapping("/{employeeId}/profile")
+    public ResponseEntity<EmployeeDetailsResponse> getEmployeeProfile(
+            @PathVariable Long employeeId) {
+
+        return ResponseEntity.ok(
+                employeeService.getEmployeeProfile(employeeId)
+        );
+    }
+
 
 
 }

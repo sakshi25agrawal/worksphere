@@ -1,6 +1,6 @@
 package com.worksphere.employee.orchestrator;
 
-import com.worksphere.employee.dto.DepartmentResponse;
+import com.worksphere.employee.dto.external.DepartmentResponse;
 import com.worksphere.employee.resilience.DepartmentResilienceService;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;

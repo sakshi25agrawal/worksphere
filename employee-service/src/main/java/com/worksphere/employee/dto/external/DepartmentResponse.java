@@ -1,4 +1,4 @@
-package com.worksphere.employee.dto;
+package com.worksphere.employee.dto.external;
 
 public record DepartmentResponse(
 

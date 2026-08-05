@@ -1,7 +1,7 @@
 package com.worksphere.employee.mapper;
 
-import com.worksphere.employee.dto.EmployeeRequest;
-import com.worksphere.employee.dto.EmployeeResponse;
+import com.worksphere.employee.dto.request.EmployeeRequest;
+import com.worksphere.employee.dto.response.EmployeeResponse;
 import com.worksphere.employee.entity.Employee;
 
 public class EmployeeMapper {

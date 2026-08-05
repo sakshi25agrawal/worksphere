@@ -1,7 +1,7 @@
 package com.worksphere.employee.controller;
 
-import com.worksphere.employee.dto.AuthenticationRequest;
-import com.worksphere.employee.dto.AuthenticationResponse;
+import com.worksphere.employee.dto.request.AuthenticationRequest;
+import com.worksphere.employee.dto.response.AuthenticationResponse;
 import com.worksphere.employee.service.AuthenticationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

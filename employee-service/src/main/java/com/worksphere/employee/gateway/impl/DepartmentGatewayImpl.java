@@ -1,6 +1,6 @@
 package com.worksphere.employee.gateway.impl;
 
-import com.worksphere.employee.dto.DepartmentResponse;
+import com.worksphere.employee.dto.external.DepartmentResponse;
 import com.worksphere.employee.gateway.DepartmentGateway;
 import com.worksphere.employee.orchestrator.DepartmentAsyncService;
 import com.worksphere.employee.resilience.DepartmentResilienceService;
@@ -24,7 +24,7 @@ public class DepartmentGatewayImpl implements DepartmentGateway {
     }
 
     @Override
-    public DepartmentResponse getDepartment(Long departmentId) {
+    public DepartmentResponse getDepartmentById(Long departmentId) {
 
         return departmentResilienceService.getDepartment(departmentId);
 

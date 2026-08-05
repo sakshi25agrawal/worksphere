@@ -3,9 +3,16 @@ package com.worksphere.employee.service.impl;
 import com.worksphere.common.exception.DuplicateResourceException;
 import com.worksphere.common.exception.ResourceNotFoundException;
 import com.worksphere.employee.client.DepartmentFeignClient;
-import com.worksphere.employee.dto.*;
+import com.worksphere.employee.dto.external.PayrollResponse;
+import com.worksphere.employee.dto.request.EmployeeRequest;
+import com.worksphere.employee.dto.external.DepartmentResponse;
+import com.worksphere.employee.dto.response.EmployeeDetailsResponse;
+import com.worksphere.employee.dto.response.EmployeePageResponse;
+import com.worksphere.employee.dto.response.EmployeeResponse;
+import com.worksphere.employee.dto.response.EmployeeWithDepartmentResponse;
 import com.worksphere.employee.entity.Employee;
 import com.worksphere.employee.gateway.DepartmentGateway;
+import com.worksphere.employee.gateway.PayrollGateway;
 import com.worksphere.employee.mapper.EmployeeMapper;
 import com.worksphere.employee.repository.EmployeeRepository;
 import com.worksphere.employee.service.EmployeeService;
@@ -27,15 +34,19 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final DepartmentRestClient departmentRestClient;
     private final DepartmentFeignClient departmentFeignClient;
     private final DepartmentGateway departmentGateway;
+
+
+    private final PayrollGateway payrollGateway;
     private static final Logger log =
             LoggerFactory.getLogger(EmployeeServiceImpl.class);
     public EmployeeServiceImpl(EmployeeRepository employeeRepository,
                                DepartmentRestClient departmentClient,
-                               DepartmentFeignClient departmentFeignClient, DepartmentGateway departmentGateway) {
+                               DepartmentFeignClient departmentFeignClient, DepartmentGateway departmentGateway, PayrollGateway payrollGateway) {
         this.employeeRepository = employeeRepository;
         this.departmentRestClient = departmentClient;
         this.departmentFeignClient = departmentFeignClient;
         this.departmentGateway = departmentGateway;
+        this.payrollGateway = payrollGateway;
     }
 
     @Override
@@ -62,7 +73,7 @@ public class EmployeeServiceImpl implements EmployeeService {
         // Validate department exists
         log.info("Before calling department service");
 
-        departmentGateway.getDepartment(request.departmentId());
+        departmentGateway.getDepartmentById(request.departmentId());
         // Mapper Added
         Employee employee = EmployeeMapper.toEntity(request);
 
@@ -247,6 +258,35 @@ public class EmployeeServiceImpl implements EmployeeService {
         employeeRepository.delete(employee);
 
         log.info("Employee deleted successfully with ID: {}", id);
+    }
+
+    @Override
+    public EmployeeDetailsResponse getEmployeeProfile(Long employeeId) {
+
+        log.info("Fetching employee profile for employeeId={}", employeeId);
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Employee",
+                                "id",
+                                employeeId
+                        ));
+
+        DepartmentResponse department =
+                departmentGateway.getDepartmentById(
+                        employee.getDepartmentId()
+                );
+
+        PayrollResponse payroll =
+                payrollGateway.getPayrollByEmployeeId(
+                        employee.getId()
+                );
+
+        return new EmployeeDetailsResponse(
+                EmployeeMapper.toResponse(employee),
+                department,
+                payroll
+        );
     }
 
 }

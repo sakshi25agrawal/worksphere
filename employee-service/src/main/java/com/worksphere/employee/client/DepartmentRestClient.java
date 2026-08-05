@@ -1,7 +1,6 @@
 package com.worksphere.employee.client;
 
-import com.worksphere.employee.dto.DepartmentResponse;
-import org.springframework.beans.factory.annotation.Value;
+import com.worksphere.employee.dto.external.DepartmentResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 

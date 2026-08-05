@@ -1,6 +1,6 @@
 package com.worksphere.employee.client;
 
-import com.worksphere.employee.dto.DepartmentResponse;
+import com.worksphere.employee.dto.external.DepartmentResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;

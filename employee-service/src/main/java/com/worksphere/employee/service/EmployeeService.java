@@ -1,9 +1,9 @@
 package com.worksphere.employee.service;
-import com.worksphere.employee.dto.EmployeePageResponse;
-import com.worksphere.employee.dto.EmployeeRequest;
-import com.worksphere.employee.dto.EmployeeResponse;
-import com.worksphere.employee.dto.EmployeeWithDepartmentResponse;
-import org.springframework.data.domain.Page;
+import com.worksphere.employee.dto.response.EmployeeDetailsResponse;
+import com.worksphere.employee.dto.response.EmployeePageResponse;
+import com.worksphere.employee.dto.request.EmployeeRequest;
+import com.worksphere.employee.dto.response.EmployeeResponse;
+import com.worksphere.employee.dto.response.EmployeeWithDepartmentResponse;
 
 
 public interface EmployeeService {
@@ -24,6 +24,8 @@ public interface EmployeeService {
   EmployeeResponse updateEmployee(Long id, EmployeeRequest request);
 
   void deleteEmployee(Long id);
+
+  EmployeeDetailsResponse getEmployeeProfile(Long employeeId);
 
 
 }

@@ -2,8 +2,8 @@ package com.worksphere.employee.service;
 
 import org.springframework.stereotype.Service;
 
-import com.worksphere.employee.dto.AuthenticationRequest;
-import com.worksphere.employee.dto.AuthenticationResponse;
+import com.worksphere.employee.dto.request.AuthenticationRequest;
+import com.worksphere.employee.dto.response.AuthenticationResponse;
 import com.worksphere.employee.security.JwtService;
 
 import org.springframework.security.authentication.AuthenticationManager;
