@@ -9,7 +9,7 @@ import java.util.concurrent.Executor;
 @Configuration
 public class AsyncConfig {
 
-    @Bean(name = "departmentExecutor")
+    @Bean(name = "orchestrationExecutor")
     public Executor departmentExecutor() {
 
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();

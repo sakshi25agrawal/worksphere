@@ -18,28 +18,27 @@ public class DepartmentAsyncService {
 
     private final DepartmentResilienceService departmentResilienceService;
 
-    @Resource(name = "departmentExecutor")
-    private Executor departmentExecutor;
+    @Resource(name = "orchestrationExecutor")
+    private final  Executor orchestrationExecutor;
 
     public DepartmentAsyncService(
-            DepartmentResilienceService departmentResilienceService) {
+            DepartmentResilienceService departmentResilienceService, Executor orchestrationExecutor) {
         this.departmentResilienceService = departmentResilienceService;
+        this.orchestrationExecutor = orchestrationExecutor;
     }
-
-    public CompletableFuture<DepartmentResponse> getDepartmentAsync(
-            Long departmentId) {
+    public CompletableFuture<DepartmentResponse> getDepartmentAsync(Long departmentId) {
 
         log.info("Submitting Department Service request to async executor");
-
         return CompletableFuture.supplyAsync(() -> {
 
-            log.info("Executing Department Service call on thread : {}",
+
+            DepartmentResponse response =
+                    departmentResilienceService.getDepartment(departmentId);
+            log.info("Executing Department Service on thread : {}",
                     Thread.currentThread().getName());
+            return response;
 
-            return departmentResilienceService.getDepartment(departmentId);
-
-        }, departmentExecutor);
-
+        }, orchestrationExecutor);
     }
 
 }

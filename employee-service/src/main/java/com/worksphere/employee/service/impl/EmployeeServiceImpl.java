@@ -23,6 +23,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.worksphere.employee.client.DepartmentRestClient;
@@ -259,11 +261,11 @@ public class EmployeeServiceImpl implements EmployeeService {
 
         log.info("Employee deleted successfully with ID: {}", id);
     }
-
     @Override
     public EmployeeDetailsResponse getEmployeeProfile(Long employeeId) {
 
         log.info("Fetching employee profile for employeeId={}", employeeId);
+
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
@@ -272,20 +274,25 @@ public class EmployeeServiceImpl implements EmployeeService {
                                 employeeId
                         ));
 
-        DepartmentResponse department =
-                departmentGateway.getDepartmentById(
+        CompletableFuture<DepartmentResponse> departmentFuture =
+                departmentGateway.getDepartmentAsync(
                         employee.getDepartmentId()
                 );
 
-        PayrollResponse payroll =
-                payrollGateway.getPayrollByEmployeeId(
+        CompletableFuture<PayrollResponse> payrollFuture =
+                payrollGateway.getPayrollAsync(
                         employee.getId()
                 );
 
+        CompletableFuture.allOf(
+                departmentFuture,
+                payrollFuture
+        ).join();
+
         return new EmployeeDetailsResponse(
                 EmployeeMapper.toResponse(employee),
-                department,
-                payroll
+                departmentFuture.join(),
+                payrollFuture.join()
         );
     }
 
