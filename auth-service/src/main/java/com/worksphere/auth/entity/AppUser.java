@@ -1,4 +1,4 @@
-package com.worksphere.employee.entity;
+package com.worksphere.auth.entity;
 
 import jakarta.persistence.*;
 import org.springframework.security.core.GrantedAuthority;
@@ -79,7 +79,9 @@ public class AppUser implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority(role));
+        return List.of(
+                new SimpleGrantedAuthority(role)
+        );
     }
 
     @Override

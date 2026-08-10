@@ -120,6 +120,11 @@
                     </configuration>
 
                 </plugin>
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <version>${spring.boot.version}</version>
+                </plugin>
 
             </plugins>
 
@@ -139,6 +144,7 @@
         <module>eureka-server</module>
         <module>api-gateway</module>
         <module>payroll-service</module>
+        <module>auth-service</module>
 
     </modules>
 

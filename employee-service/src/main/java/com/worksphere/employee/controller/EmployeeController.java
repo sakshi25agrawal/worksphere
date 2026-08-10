@@ -43,11 +43,11 @@ public class EmployeeController {
             summary = "Get Employee By ID",
             description = "Returns employee details using employee ID."
     )
-//    @GetMapping("/{id}")
-//    public ResponseEntity<EmployeeResponse> getEmployeeById(@PathVariable("id") Long id) {
-//
-//        return ResponseEntity.ok(employeeService.getEmployeeById(id));
-//    }
+    @GetMapping("/{id}")
+    public ResponseEntity<EmployeeResponse> getEmployeeById(@PathVariable("id") Long id) {
+
+        return ResponseEntity.ok(employeeService.getEmployeeById(id));
+    }
 
     // This API call will flow through RestClient implementation
     @GetMapping("/{id}/rest")

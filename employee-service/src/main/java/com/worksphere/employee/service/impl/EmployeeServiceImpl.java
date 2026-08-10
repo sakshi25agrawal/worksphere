@@ -93,29 +93,29 @@ public class EmployeeServiceImpl implements EmployeeService {
         return EmployeeMapper.toResponse(savedEmployee);
     }
 
-//    @Override
-//    public EmployeeResponse getEmployeeById(Long id) {
-//
-//        log.info("Fetching employee with ID: {}", id);
-//
-//        Employee employee = employeeRepository.findById(id)
-//                .orElseThrow(() ->
-//                        new ResourceNotFoundException(
-//                                "Employee",
-//                                "id",
-//                                id
-//                        ));
-//        log.info("Employee found with ID: {}", id);
-//
-//        return new EmployeeResponse(
-//                employee.getId(),
-//                employee.getFirstName(),
-//                employee.getLastName(),
-//                employee.getEmail(),
-//                employee.getSalary(),
-//                employee.getDepartmentId()
-//        );
-//    }
+    @Override
+    public EmployeeResponse getEmployeeById(Long id) {
+
+        log.info("Fetching employee with ID: {}", id);
+
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Employee",
+                                "id",
+                                id
+                        ));
+        log.info("Employee found with ID: {}", id);
+
+        return new EmployeeResponse(
+                employee.getId(),
+                employee.getFirstName(),
+                employee.getLastName(),
+                employee.getEmail(),
+                employee.getSalary(),
+                employee.getDepartmentId()
+        );
+    }
 
     @Override
     public EmployeeWithDepartmentResponse getEmployeeWithDepartmentFeign(Long id) {

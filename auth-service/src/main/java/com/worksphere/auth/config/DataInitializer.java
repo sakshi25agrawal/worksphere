@@ -1,7 +1,7 @@
-package com.worksphere.employee.config;
+package com.worksphere.auth.config;
 
-import com.worksphere.employee.entity.AppUser;
-import com.worksphere.employee.repository.AppUserRepository;
+import com.worksphere.auth.entity.AppUser;
+import com.worksphere.auth.repository.AppUserRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -40,8 +40,6 @@ public class DataInitializer implements CommandLineRunner {
             appUserRepository.save(admin);
 
             System.out.println("Default Admin User Created");
-
         }
-
     }
 }

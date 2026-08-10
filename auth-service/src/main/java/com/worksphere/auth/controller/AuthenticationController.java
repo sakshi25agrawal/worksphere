@@ -1,8 +1,9 @@
-package com.worksphere.employee.controller;
+package com.worksphere.auth.controller;
 
-import com.worksphere.employee.dto.request.AuthenticationRequest;
-import com.worksphere.employee.dto.response.AuthenticationResponse;
-import com.worksphere.employee.service.AuthenticationService;
+import com.worksphere.auth.dto.request.AuthenticationRequest;
+import com.worksphere.auth.dto.response.AuthenticationResponse;
+import com.worksphere.auth.service.AuthenticationService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,17 +13,18 @@ public class AuthenticationController {
 
     private final AuthenticationService authenticationService;
 
-    public AuthenticationController(AuthenticationService authenticationService) {
+    public AuthenticationController(
+            AuthenticationService authenticationService) {
+
         this.authenticationService = authenticationService;
     }
 
     @PostMapping("/login")
     public ResponseEntity<AuthenticationResponse> login(
-            @RequestBody AuthenticationRequest request) {
+            @Valid @RequestBody AuthenticationRequest request) {
 
         return ResponseEntity.ok(
                 authenticationService.authenticate(request)
         );
     }
-
 }

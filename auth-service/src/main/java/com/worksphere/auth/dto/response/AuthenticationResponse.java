@@ -1,4 +1,4 @@
-package com.worksphere.employee.dto.response;
+package com.worksphere.auth.dto.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 

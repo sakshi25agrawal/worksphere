@@ -1,21 +1,18 @@
-package com.worksphere.employee.service;
+package com.worksphere.auth.service;
 
-import org.springframework.stereotype.Service;
-
-import com.worksphere.employee.dto.request.AuthenticationRequest;
-import com.worksphere.employee.dto.response.AuthenticationResponse;
-import com.worksphere.employee.security.JwtService;
-
+import com.worksphere.auth.dto.request.AuthenticationRequest;
+import com.worksphere.auth.dto.response.AuthenticationResponse;
+import com.worksphere.auth.entity.AppUser;
+import com.worksphere.auth.repository.AppUserRepository;
+import com.worksphere.auth.security.JwtService;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import com.worksphere.employee.entity.AppUser;
-import com.worksphere.employee.repository.AppUserRepository;
+import org.springframework.stereotype.Service;
 
 @Service
 public class AuthenticationService {
 
     private final AuthenticationManager authenticationManager;
-
     private final JwtService jwtService;
     private final AppUserRepository appUserRepository;
 
@@ -39,13 +36,13 @@ public class AuthenticationService {
                 )
         );
 
-        AppUser user = appUserRepository.findByUsername(request.username())
+        AppUser user = appUserRepository
+                .findByUsername(request.username())
                 .orElseThrow();
 
-        String token = jwtService.generateToken(user.getUsername());
+        String token =
+                jwtService.generateToken(user.getUsername());
 
         return new AuthenticationResponse(token);
-
     }
-
 }

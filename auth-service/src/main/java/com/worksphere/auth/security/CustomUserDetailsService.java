@@ -1,7 +1,7 @@
-package com.worksphere.employee.security;
+package com.worksphere.auth.security;
 
-import com.worksphere.employee.entity.AppUser;
-import com.worksphere.employee.repository.AppUserRepository;
+import com.worksphere.auth.entity.AppUser;
+import com.worksphere.auth.repository.AppUserRepository;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -12,7 +12,9 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     private final AppUserRepository appUserRepository;
 
-    public CustomUserDetailsService(AppUserRepository appUserRepository) {
+    public CustomUserDetailsService(
+            AppUserRepository appUserRepository) {
+
         this.appUserRepository = appUserRepository;
     }
 

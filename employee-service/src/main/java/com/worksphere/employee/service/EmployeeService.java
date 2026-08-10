@@ -10,7 +10,7 @@ public interface EmployeeService {
 
   EmployeeResponse createEmployee(EmployeeRequest request);
 
-//    EmployeeResponse  getEmployeeById(Long id);
+    EmployeeResponse  getEmployeeById(Long id);
 
   EmployeeWithDepartmentResponse getEmployeeWithDepartmentRest(Long id);
 

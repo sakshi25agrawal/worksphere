@@ -1,4 +1,4 @@
-package com.worksphere.employee.dto.request;
+package com.worksphere.auth.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
@@ -7,7 +7,7 @@ public record AuthenticationRequest(
 
         @Schema(
                 description = "Username",
-                example = "sakshi"
+                example = "admin"
         )
         @NotBlank(message = "Username is required")
         String username,

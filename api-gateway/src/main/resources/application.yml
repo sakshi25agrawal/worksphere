@@ -7,7 +7,6 @@ spring:
 
   cloud:
     gateway:
-
       discovery:
         locator:
           enabled: true
@@ -17,6 +16,8 @@ eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
+jwt:
+  secret: mySuperSecretKeyForJwtAuthentication12345678901234567890
 
 management:
   endpoints:
