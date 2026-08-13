@@ -145,6 +145,7 @@
         <module>api-gateway</module>
         <module>payroll-service</module>
         <module>auth-service</module>
+        <module>kafka-module</module>
 
     </modules>
 

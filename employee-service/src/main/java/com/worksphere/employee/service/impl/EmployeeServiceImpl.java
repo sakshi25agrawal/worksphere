@@ -16,6 +16,7 @@ import com.worksphere.employee.gateway.PayrollGateway;
 import com.worksphere.employee.mapper.EmployeeMapper;
 import com.worksphere.employee.repository.EmployeeRepository;
 import com.worksphere.employee.service.EmployeeService;
+import com.worksphere.kafka.event.EmployeeCreatedEvent;
 import org.springframework.stereotype.Service;
 
 import org.springframework.data.domain.Page;
@@ -28,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.worksphere.employee.client.DepartmentRestClient;
+import com.worksphere.employee.kafka.EmployeeKafkaPublisher;
 
 @Service
 public class EmployeeServiceImpl implements EmployeeService {
@@ -36,18 +38,19 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final DepartmentRestClient departmentRestClient;
     private final DepartmentFeignClient departmentFeignClient;
     private final DepartmentGateway departmentGateway;
-
+    private final EmployeeKafkaPublisher employeeKafkaPublisher;
 
     private final PayrollGateway payrollGateway;
     private static final Logger log =
             LoggerFactory.getLogger(EmployeeServiceImpl.class);
     public EmployeeServiceImpl(EmployeeRepository employeeRepository,
                                DepartmentRestClient departmentClient,
-                               DepartmentFeignClient departmentFeignClient, DepartmentGateway departmentGateway, PayrollGateway payrollGateway) {
+                               DepartmentFeignClient departmentFeignClient, DepartmentGateway departmentGateway, EmployeeKafkaPublisher employeeKafkaPublisher, PayrollGateway payrollGateway) {
         this.employeeRepository = employeeRepository;
         this.departmentRestClient = departmentClient;
         this.departmentFeignClient = departmentFeignClient;
         this.departmentGateway = departmentGateway;
+        this.employeeKafkaPublisher = employeeKafkaPublisher;
         this.payrollGateway = payrollGateway;
     }
 
@@ -89,7 +92,17 @@ public class EmployeeServiceImpl implements EmployeeService {
 //                savedEmployee.getSalary(),
 //                savedEmployee.getDepartmentId()
 //        );
-       //Added Mapper Feature
+        //Kafka Event  initialization
+        EmployeeCreatedEvent event = new EmployeeCreatedEvent(
+                savedEmployee.getId(),
+                savedEmployee.getFirstName(),
+                savedEmployee.getLastName(),
+                savedEmployee.getEmail(),
+                savedEmployee.getSalary(),
+                savedEmployee.getDepartmentId()
+        );
+
+        employeeKafkaPublisher.publishEmployeeCreated(event);
         return EmployeeMapper.toResponse(savedEmployee);
     }
 

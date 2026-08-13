@@ -26,6 +26,11 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.worksphere</groupId>
+            <artifactId>kafka-module</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
         <!-- Validation -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
