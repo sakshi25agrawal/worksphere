@@ -9,7 +9,7 @@
 
     <parent>
         <groupId>com.worksphere</groupId>
-        <artifactId>worksphere-parent</artifactId>
+        <artifactId>WorksphereParent</artifactId>
         <version>1.0.0-SNAPSHOT</version>
     </parent>
 
