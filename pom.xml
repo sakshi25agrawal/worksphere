@@ -146,6 +146,7 @@
         <module>payroll-service</module>
         <module>auth-service</module>
         <module>kafka-module</module>
+        <module>leave-service</module>
 
     </modules>
 
