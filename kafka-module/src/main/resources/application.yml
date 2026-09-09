@@ -1,0 +1,3 @@
+spring:
+  Kafka:
+    bootstrap-servers: localhost:9092
