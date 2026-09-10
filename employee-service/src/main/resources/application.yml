@@ -19,7 +19,7 @@ server:
   port: 8081
 
 jwt:
-  secret: mySuperSecretKeyForJwtAuthentication12345678901234567890
+  secret: ${JWT_SECRET}
 
 eureka:
   instance:
