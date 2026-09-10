@@ -41,7 +41,7 @@ public class AuthenticationService {
                 .orElseThrow();
 
         String token =
-                jwtService.generateToken(user.getUsername());
+                jwtService.generateToken(user);
 
         return new AuthenticationResponse(token);
     }

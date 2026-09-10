@@ -1,5 +1,6 @@
 package com.worksphere.auth.security;
 
+import com.worksphere.auth.entity.AppUser;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -25,10 +26,11 @@ public class JwtService {
         );
     }
 
-    public String generateToken(String username) {
+    public String generateToken(AppUser user) {
 
         return Jwts.builder()
-                .subject(username)
+                .subject(user.getUsername())
+                .claim("role", user.getRole())
                 .issuedAt(new Date())
                 .expiration(
                         new Date(
@@ -91,6 +93,14 @@ public class JwtService {
         return extractClaim(
                 token,
                 Claims::getExpiration
+        );
+    }
+
+    public String extractRole(String token) {
+
+        return extractClaim(
+                token,
+                claims -> claims.get("role", String.class)
         );
     }
 }
