@@ -1,48 +1,82 @@
 package com.worksphere.auth.security;
 
 import com.worksphere.auth.entity.AppUser;
+import com.worksphere.auth.entity.Role;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.List;
 import java.util.function.Function;
 
 @Service
 public class JwtService {
 
-    private static final String SECRET_KEY =
-            "mySuperSecretKeyForJwtAuthentication12345678901234567890";
+    @Value("${jwt.secret}")
+    private String secretKey;
 
     private static final long EXPIRATION_TIME = 1000 * 60 * 60;
 
     private SecretKey getSignInKey() {
 
         return Keys.hmacShaKeyFor(
-                SECRET_KEY.getBytes()
+                secretKey.getBytes(StandardCharsets.UTF_8)
         );
     }
 
-    public String generateToken(AppUser user) {
+    public String generateToken(
+            AppUser user,
+            List<String> permissions) {
+
+        List<String> roles = user.getRoles()
+                .stream()
+                .map(Role::getName)
+                .toList();
 
         return Jwts.builder()
                 .subject(user.getUsername())
-                .claim("role", user.getRole())
+
+                // Roles come from user_roles -> roles
+                .claim("roles", roles)
+
+                // Permissions come from role_permissions
+                .claim("permissions", permissions)
+
                 .issuedAt(new Date())
+
                 .expiration(
                         new Date(
                                 System.currentTimeMillis()
                                         + EXPIRATION_TIME
                         )
                 )
+
                 .signWith(
                         getSignInKey(),
                         SignatureAlgorithm.HS256
                 )
+
                 .compact();
+    }
+
+    public List<String> extractRoles(String token) {
+
+        Claims claims = extractAllClaims(token);
+
+        return claims.get("roles", List.class);
+    }
+
+    public List<String> extractPermissions(String token) {
+
+        Claims claims = extractAllClaims(token);
+
+        return claims.get("permissions", List.class);
     }
 
     public String extractUsername(String token) {
@@ -93,14 +127,6 @@ public class JwtService {
         return extractClaim(
                 token,
                 Claims::getExpiration
-        );
-    }
-
-    public String extractRole(String token) {
-
-        return extractClaim(
-                token,
-                claims -> claims.get("role", String.class)
         );
     }
 }

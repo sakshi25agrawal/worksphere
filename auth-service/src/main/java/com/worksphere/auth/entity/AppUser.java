@@ -23,24 +23,17 @@ public class AppUser implements UserDetails {
     private String password;
 
     @Column(nullable = false)
-    private String role;
-
-    @Column(nullable = false)
     private boolean enabled = true;
 
-    public AppUser() {
-    }
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "user_roles",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
+    private List<Role> roles;
 
-    public AppUser(Long id,
-                   String username,
-                   String password,
-                   String role,
-                   boolean enabled) {
-        this.id = id;
-        this.username = username;
-        this.password = password;
-        this.role = role;
-        this.enabled = enabled;
+    public AppUser() {
     }
 
     public Long getId() {
@@ -69,19 +62,21 @@ public class AppUser implements UserDetails {
         this.password = password;
     }
 
-    public String getRole() {
-        return role;
+    public List<Role> getRoles() {
+        return roles;
     }
 
-    public void setRole(String role) {
-        this.role = role;
+    public void setRoles(List<Role> roles) {
+        this.roles = roles;
     }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(
-                new SimpleGrantedAuthority("ROLE_" + role)
-        );
+        return roles.stream()
+                .map(role -> new SimpleGrantedAuthority(
+                        "ROLE_" + role.getName()
+                ))
+                .toList();
     }
 
     @Override

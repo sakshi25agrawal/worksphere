@@ -80,14 +80,31 @@ public class SecurityConfig {
         JwtGrantedAuthoritiesConverter authoritiesConverter =
                 new JwtGrantedAuthoritiesConverter();
 
-        authoritiesConverter.setAuthoritiesClaimName("role");
+        // Read roles from the "roles" JWT claim
+        authoritiesConverter.setAuthoritiesClaimName("roles");
         authoritiesConverter.setAuthorityPrefix("ROLE_");
 
         JwtAuthenticationConverter converter =
                 new JwtAuthenticationConverter();
 
         converter.setJwtGrantedAuthoritiesConverter(
-                authoritiesConverter
+                jwt -> {
+
+                    var authorities =
+                            authoritiesConverter.convert(jwt);
+
+                    // Add permissions from the "permissions" JWT claim
+                    var permissions =
+                            jwt.getClaimAsStringList("permissions");
+
+                    if (permissions != null) {
+                        permissions.stream()
+                                .map(org.springframework.security.core.authority.SimpleGrantedAuthority::new)
+                                .forEach(authorities::add);
+                    }
+
+                    return authorities;
+                }
         );
 
         return converter;

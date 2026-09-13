@@ -9,6 +9,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 @Component
 public class JwtAuthenticationFilter
         implements GlobalFilter, Ordered {
@@ -24,16 +26,14 @@ public class JwtAuthenticationFilter
             ServerWebExchange exchange,
             GatewayFilterChain chain) {
 
-        String path =
-                exchange.getRequest()
-                        .getURI()
-                        .getPath();
+        String path = exchange.getRequest()
+                .getURI()
+                .getPath();
 
         /*
          * Authentication endpoint must be publicly accessible.
          */
         if (path.startsWith("/auth-service/api/v1/auth/")) {
-
             return chain.filter(exchange);
         }
 
@@ -49,10 +49,9 @@ public class JwtAuthenticationFilter
         /*
          * Read Authorization header.
          */
-        String authHeader =
-                exchange.getRequest()
-                        .getHeaders()
-                        .getFirst(HttpHeaders.AUTHORIZATION);
+        String authHeader = exchange.getRequest()
+                .getHeaders()
+                .getFirst(HttpHeaders.AUTHORIZATION);
 
         if (authHeader == null
                 || !authHeader.startsWith("Bearer ")) {
@@ -66,9 +65,23 @@ public class JwtAuthenticationFilter
          * Validate JWT.
          */
         if (!jwtService.isTokenValid(token)) {
-
             return unauthorized(exchange);
         }
+
+        /*
+         * Extract permissions from JWT.
+         */
+        List<String> permissions =
+                jwtService.extractPermissions(token);
+
+        /*
+         * Temporary verification.
+         * We will use these permissions for authorization
+         * in the next step.
+         */
+        System.out.println(
+                "JWT Permissions: " + permissions
+        );
 
         /*
          * JWT is valid.
@@ -82,8 +95,7 @@ public class JwtAuthenticationFilter
         exchange.getResponse()
                 .setStatusCode(HttpStatus.UNAUTHORIZED);
 
-        return exchange.getResponse()
-                .setComplete();
+        return exchange.getResponse().setComplete();
     }
 
     @Override

@@ -7,15 +7,19 @@ spring:
 
   cloud:
     gateway:
-      discovery:
-        locator:
-          enabled: true
-          lower-case-service-id: true
+      server:
+        webflux:
+
+          discovery:
+            locator:
+              enabled: true
+              lower-case-service-id: true
 
 eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
+
 jwt:
   secret: ${JWT_SECRET}
 
@@ -24,3 +28,7 @@ management:
     web:
       exposure:
         include: "*"
+
+  endpoint:
+    gateway:
+      access: read-only
