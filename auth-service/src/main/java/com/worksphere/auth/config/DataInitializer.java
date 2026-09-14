@@ -27,15 +27,20 @@ public class DataInitializer implements CommandLineRunner {
         this.passwordEncoder = passwordEncoder;
     }
 
+
     @Override
     public void run(String... args) {
 
+        /*
+         * Create default ADMIN user if it does not exist.
+         */
         if (appUserRepository.findByUsername("admin").isEmpty()) {
 
             Role adminRole = roleRepository
                     .findByName("ADMIN")
                     .orElseThrow(() ->
-                            new IllegalStateException("ADMIN role not found"));
+                            new IllegalStateException(
+                                    "ADMIN role not found"));
 
             AppUser admin = new AppUser();
 
@@ -52,6 +57,36 @@ public class DataInitializer implements CommandLineRunner {
             appUserRepository.save(admin);
 
             System.out.println("Default Admin User Created");
+        }
+
+        /*
+         * Create default EMPLOYEE user if it does not exist.
+         *
+         * This user is used to test RBAC authorization.
+         */
+        if (appUserRepository.findByUsername("employee").isEmpty()) {
+
+            Role employeeRole = roleRepository
+                    .findByName("EMPLOYEE")
+                    .orElseThrow(() ->
+                            new IllegalStateException(
+                                    "EMPLOYEE role not found"));
+
+            AppUser employee = new AppUser();
+
+            employee.setUsername("employee");
+
+            employee.setPassword(
+                    passwordEncoder.encode("Employee@123")
+            );
+
+            employee.setRoles(List.of(employeeRole));
+
+            employee.setEnabled(true);
+
+            appUserRepository.save(employee);
+
+            System.out.println("Default Employee User Created");
         }
     }
 }

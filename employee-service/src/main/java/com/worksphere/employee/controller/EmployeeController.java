@@ -27,7 +27,6 @@ public class EmployeeController {
         this.employeeService = employeeService;
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Create Employee",
@@ -68,7 +67,6 @@ public class EmployeeController {
         return ResponseEntity.ok(employeeService.getEmployeeWithDepartmentFeign(id));
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @Operation(
             summary = "Get All Employees",
             description = "Returns paginated employee list."
@@ -92,7 +90,7 @@ public class EmployeeController {
         );
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+
     @Operation(
             summary = "Update Employee",
             description = "Updates an existing employee."
@@ -107,7 +105,7 @@ public class EmployeeController {
         return ResponseEntity.ok(response);
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+
     @Operation(
             summary = "Delete Employee",
             description = "Deletes an employee by ID."
