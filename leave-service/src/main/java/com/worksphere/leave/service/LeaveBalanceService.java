@@ -10,4 +10,6 @@ public interface LeaveBalanceService {
             Long employeeId,
             Integer year
     );
+
+    void initializeEmployeeBalances(Long employeeId);
 }
