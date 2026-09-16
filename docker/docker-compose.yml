@@ -1,28 +1,64 @@
 services:
 
+  # ==========================================================
+  # MySQL
+  # ==========================================================
+  mysql:
+    image: mysql:8.4
+    container_name: worksphere-mysql
+
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+
+    ports:
+      - "3307:3306"
+
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d:ro
+
+    networks:
+      - worksphere-network
+
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+
+  # ==========================================================
+  # Kafka
+  # ==========================================================
   kafka:
     image: apache/kafka:4.0.0
     container_name: worksphere-kafka
 
     ports:
-      - "9092:9092"
+      - "29092:29092"
 
     environment:
+
       KAFKA_NODE_ID: 1
+
       KAFKA_PROCESS_ROLES: broker,controller
 
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
 
-      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_LISTENERS: INTERNAL://:9092,EXTERNAL://:29092,CONTROLLER://:9093
 
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:29092
 
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
 
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
 
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
 
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
@@ -32,24 +68,203 @@ services:
     volumes:
       - kafka-data:/var/lib/kafka/data
 
+    networks:
+      - worksphere-network
 
-  mysql:
-    image: mysql:8.0
-    container_name: worksphere-mysql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list > /dev/null 2>&1"
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 10
 
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: auth_db
+
+  # ==========================================================
+  # Eureka Server
+  # ==========================================================
+  eureka-server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        SERVICE_NAME: eureka-server
+
+    container_name: worksphere-eureka
 
     ports:
-      - "3307:3306"
+      - "8761:8761"
 
-    volumes:
-      - mysql-data:/var/lib/mysql
-      - ./mysql/init:/docker-entrypoint-initdb.d
+    environment:
+      SERVER_PORT: 8761
 
-    restart: unless-stopped
+    networks:
+      - worksphere-network
 
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  # ==========================================================
+  # Auth Server
+  # ==========================================================
+
+  auth-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        SERVICE_NAME: auth-service
+    container_name: worksphere-auth
+    ports:
+      - "8085:8085"
+    environment:
+      SERVER_PORT: 8085
+
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/auth_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      JWT_SECRET: "change-this-to-a-long-random-secret-key-for-worksphere"
+    networks:
+      - worksphere-network
+
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+
+  # ==========================================================
+  # Employee Server
+  # ==========================================================
+  employee-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        SERVICE_NAME: employee-service
+    container_name: worksphere-employee
+    ports:
+      - "8081:8081"
+    environment:
+      SERVER_PORT: 8081
+      JWT_SECRET: "change-this-to-a-long-random-secret-key-for-worksphere"
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/worksphere_employee?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    networks:
+      - worksphere-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+  # ==========================================================
+  # Department Server
+  # ==========================================================
+
+
+  department-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        SERVICE_NAME: department-service
+    container_name: worksphere-department
+    ports:
+      - "8082:8082"
+    environment:
+      SERVER_PORT: 8082
+      JWT_SECRET: "change-this-to-a-long-random-secret-key-for-worksphere"
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/worksphere_department?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    networks:
+      - worksphere-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+  # ==========================================================
+  # leave Server
+  # ==========================================================
+  leave-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        SERVICE_NAME: leave-service
+    container_name: worksphere-leave
+    expose:
+      - "8085"
+    environment:
+      SERVER_PORT: 8085
+      JWT_SECRET: "change-this-to-a-long-random-secret-key-for-worksphere"
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/worksphere_leave?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    networks:
+      - worksphere-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+      kafka:
+        condition: service_started
+
+ # ==========================================================
+ # payroll Server
+ # ==========================================================
+
+  payroll-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        SERVICE_NAME: payroll-service
+    container_name: worksphere-payroll
+    expose:
+      - "8083"
+    environment:
+      SERVER_PORT: 8083
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/worksphere_payroll?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    networks:
+      - worksphere-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+      kafka:
+        condition: service_started
+# ============================================================
+# Volumes
+# ============================================================
 volumes:
-  kafka-data:
+
   mysql-data:
+
+  kafka-data:
+
+
+# ============================================================
+# Network
+# ============================================================
+networks:
+
+  worksphere-network:
+    driver: bridge
