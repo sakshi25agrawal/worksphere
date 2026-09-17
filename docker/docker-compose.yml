@@ -251,6 +251,39 @@ services:
         condition: service_started
       kafka:
         condition: service_started
+
+
+  # ==========================================================
+  # API Gateway
+  # ==========================================================
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        SERVICE_NAME: api-gateway
+
+    container_name: worksphere-api-gateway
+
+    ports:
+      - "8080:8080"
+
+    environment:
+      SERVER_PORT: 8080
+      JWT_SECRET: "change-this-to-a-long-random-secret-key-for-worksphere"
+
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      AUTH_SERVICE_URL: http://auth-service:8085
+
+    networks:
+      - worksphere-network
+
+    depends_on:
+      eureka-server:
+        condition: service_started
+      auth-service:
+        condition: service_started
+
 # ============================================================
 # Volumes
 # ============================================================

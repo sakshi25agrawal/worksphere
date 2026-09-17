@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
-
+import org.springframework.beans.factory.annotation.Value;
 import java.util.List;
 
 @Component
@@ -18,6 +18,9 @@ public class JwtAuthenticationFilter
 
     private final JwtService jwtService;
     private final WebClient webClient;
+
+    @Value("${auth.service.url:http://localhost:8085}")
+    private String authServiceUrl;
 
     public JwtAuthenticationFilter(
             JwtService jwtService,
@@ -127,14 +130,10 @@ public class JwtAuthenticationFilter
          * WebClient is reactive, so we must NOT use .block().
          */
         return webClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .scheme("http")
-                        .host("localhost")
-                        .port(8085)
-                        .path("/api/v1/authorization/resource")
-                        .queryParam("method", method)
-                        .queryParam("path", resourcePath)
-                        .build())
+                .uri(authServiceUrl + "/api/v1/authorization/resource"
+                                + "?method={method}&path={path}",
+                        method,
+                        resourcePath)
                 .retrieve()
                 .bodyToMono(String.class)
 
