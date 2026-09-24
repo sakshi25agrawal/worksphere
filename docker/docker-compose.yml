@@ -158,6 +158,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: root
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EUREKA_INSTANCE_HOSTNAME: employee-service
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "false"
     networks:
       - worksphere-network
     depends_on:
