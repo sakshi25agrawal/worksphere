@@ -208,3 +208,181 @@ SELECT
 FROM permissions p
 WHERE p.code = 'EMPLOYEE_DELETE';
 
+-- ============================================================
+-- DEPARTMENT RESOURCES
+-- ============================================================
+
+INSERT IGNORE INTO resources
+    (code, name, http_method, path_pattern, permission_id)
+SELECT
+    'DEPARTMENT_CREATE',
+    'Create department',
+    'POST',
+    '/api/v1/departments',
+    p.id
+FROM permissions p
+WHERE p.code = 'DEPARTMENT_CREATE';
+
+INSERT IGNORE INTO resources
+    (code, name, http_method, path_pattern, permission_id)
+SELECT
+    'DEPARTMENT_VIEW',
+    'View departments',
+    'GET',
+    '/api/v1/departments',
+    p.id
+FROM permissions p
+WHERE p.code = 'DEPARTMENT_VIEW';
+
+INSERT IGNORE INTO resources
+    (code, name, http_method, path_pattern, permission_id)
+SELECT
+    'DEPARTMENT_VIEW_BY_ID',
+    'View department by ID',
+    'GET',
+    '/api/v1/departments/{id}',
+    p.id
+FROM permissions p
+WHERE p.code = 'DEPARTMENT_VIEW';
+
+INSERT IGNORE INTO resources
+    (code, name, http_method, path_pattern, permission_id)
+SELECT
+    'DEPARTMENT_UPDATE',
+    'Update department',
+    'PUT',
+    '/api/v1/departments/{id}',
+    p.id
+FROM permissions p
+WHERE p.code = 'DEPARTMENT_UPDATE';
+
+INSERT IGNORE INTO resources
+    (code, name, http_method, path_pattern, permission_id)
+SELECT
+    'DEPARTMENT_DELETE',
+    'Delete department',
+    'DELETE',
+    '/api/v1/departments/{id}',
+    p.id
+FROM permissions p
+WHERE p.code = 'DEPARTMENT_DELETE';
+
+
+-- ============================================================
+-- LEAVE RESOURCES
+-- ============================================================
+
+INSERT IGNORE INTO resources
+    (code, name, http_method, path_pattern, permission_id)
+SELECT
+    'LEAVE_APPLY',
+    'Apply leave',
+    'POST',
+    '/api/v1/leaves',
+    p.id
+FROM permissions p
+WHERE p.code = 'LEAVE_APPLY';
+
+INSERT IGNORE INTO resources
+    (code, name, http_method, path_pattern, permission_id)
+SELECT
+    'LEAVE_VIEW_BY_ID',
+    'View leave by ID',
+    'GET',
+    '/api/v1/leaves/{leaveId}',
+    p.id
+FROM permissions p
+WHERE p.code = 'LEAVE_VIEW';
+
+INSERT IGNORE INTO resources
+    (code, name, http_method, path_pattern, permission_id)
+SELECT
+    'LEAVE_VIEW_BY_EMPLOYEE',
+    'View employee leaves',
+    'GET',
+    '/api/v1/leaves/employee/{employeeId}',
+    p.id
+FROM permissions p
+WHERE p.code = 'LEAVE_VIEW';
+
+INSERT IGNORE INTO resources
+    (code, name, http_method, path_pattern, permission_id)
+SELECT
+    'LEAVE_APPROVE',
+    'Approve leave',
+    'PUT',
+    '/api/v1/leaves/{leaveId}/approve',
+    p.id
+FROM permissions p
+WHERE p.code = 'LEAVE_APPROVE';
+
+INSERT IGNORE INTO resources
+    (code, name, http_method, path_pattern, permission_id)
+SELECT
+    'LEAVE_REJECT',
+    'Reject leave',
+    'PUT',
+    '/api/v1/leaves/{leaveId}/reject',
+    p.id
+FROM permissions p
+WHERE p.code = 'LEAVE_REJECT';
+
+
+-- ============================================================
+-- PAYROLL RESOURCES
+-- ============================================================
+
+INSERT IGNORE INTO resources
+    (code, name, http_method, path_pattern, permission_id)
+SELECT
+    'PAYROLL_CREATE',
+    'Create payroll',
+    'POST',
+    '/api/payroll',
+    p.id
+FROM permissions p
+WHERE p.code = 'PAYROLL_PROCESS';
+
+INSERT IGNORE INTO resources
+    (code, name, http_method, path_pattern, permission_id)
+SELECT
+    'PAYROLL_VIEW',
+    'View payroll',
+    'GET',
+    '/api/payroll',
+    p.id
+FROM permissions p
+WHERE p.code = 'PAYROLL_VIEW';
+
+INSERT IGNORE INTO resources
+    (code, name, http_method, path_pattern, permission_id)
+SELECT
+    'PAYROLL_VIEW_BY_EMPLOYEE',
+    'View payroll by employee',
+    'GET',
+    '/api/payroll/employee/{employeeId}',
+    p.id
+FROM permissions p
+WHERE p.code = 'PAYROLL_VIEW';
+
+INSERT IGNORE INTO resources
+    (code, name, http_method, path_pattern, permission_id)
+SELECT
+    'PAYROLL_UPDATE',
+    'Update payroll',
+    'PUT',
+    '/api/payroll/{payrollId}',
+    p.id
+FROM permissions p
+WHERE p.code = 'PAYROLL_PROCESS';
+
+INSERT IGNORE INTO resources
+    (code, name, http_method, path_pattern, permission_id)
+SELECT
+    'PAYROLL_DELETE',
+    'Delete payroll',
+    'DELETE',
+    '/api/payroll/{payrollId}',
+    p.id
+FROM permissions p
+WHERE p.code = 'PAYROLL_PROCESS';
