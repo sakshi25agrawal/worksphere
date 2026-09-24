@@ -12,12 +12,12 @@ Employee Service
 |
 | EmployeeCreatedEvent
 v
-Kafka
+Kafka: employee-created
 |
-+--------------------+
-|                    |
-v                    v
-Department Service      Payroll Service
++------------------+
+|                  |
+v                  v
+Payroll Service      Leave Service
 
 When an employee is created, Employee Service publishes an `EmployeeCreatedEvent`.
 
@@ -174,1090 +174,1560 @@ Using constants avoids duplicating topic names throughout the application.
 
 The current WorkSphere employee creation flow is:
 ````
-Client
-  |
-  | POST /employees
-  v
 Employee Service
-  |
-  | Save Employee
-  |
-  | Publish EmployeeCreatedEvent
-  v
-Kafka Topic
-employee-created
-  |
-  +--------------------------+
-  |                          |
-  v                          v
-Department Service       Payroll Service
-Consumer                 Consumer
+      |
+      | EmployeeCreatedEvent
+      v
+Kafka: employee-created
+      |
+      +------------------+
+      |                  |
+      v                  v
+Payroll Service      Leave Service
 
 ````
 The important point is that Kafka acts as the communication layer between the producer and consumers.
 
 ## 8. Employee Service as Kafka Producer
 
-Employee Service publishes an event after successfully creating an employee.
+Employee Service publishes an `EmployeeCreatedEvent` to Kafka.
 
 The Kafka publisher is located at:
-````
+
 employee-service/src/main/java/com/worksphere/employee/kafka/EmployeeKafkaPublisher.java
-````
+
 Its responsibility is to publish:
-````
+
 EmployeeCreatedEvent
-````
-to
-````
+
+to the Kafka topic:
+
 employee-created
-````
+
 The Employee Service therefore acts as a Kafka producer.
 
-Conceptually:
-````
+The current implementation uses the employee ID as the Kafka message key:
+
 kafkaTemplate.send(
-        KafkaTopics.EMPLOYEE_CREATED,
-        employeeId,
-        event
+EMPLOYEE_CREATED_TOPIC,
+String.valueOf(event.employeeId()),
+event
 );
-````
-The employee ID is used as the Kafka message key.
+
+So the Kafka message contains:
+
+Topic → employee-created
+Key   → employee ID converted to String
+Value → EmployeeCreatedEvent
+
+Using the employee ID as the message key allows Kafka to consistently associate events for the same employee with the same partition.
+
+The event is then consumed independently by downstream services such as Payroll Service and Leave Service.
+
+The important point is that Kafka acts as the communication layer between the producer and consumers.
+
+Employee Service does not need to make a synchronous REST call to Payroll Service or Leave Service to trigger these downstream operations.
+
 
 ## 9. Why Employee ID is Used as the Kafka Key
 
 The employee ID is used as the Kafka message key.
 
 For example:
-````
-Key: 13
+
+Key: "13"
 
 Value:
 {
-    "employeeId": 13,
-    "firstName": "Amey",
-    "lastName": "Sharma",
-    "email": "amey.sharma@example.com",
-    "salary": 65000.0,
-    "departmentId": 1
+"employeeId": 13,
+"firstName": "Amey",
+"lastName": "Sharma",
+"email": "amey.sharma@example.com",
+"salary": 65000.0,
+"departmentId": 1
 }
-````
-Kafka uses the key when determining the partition for the message.
 
-Using employee ID as the key helps ensure that events for the same employee are routed consistently to the same partition.
+Kafka uses the message key when determining the partition for the message.
 
-This is useful when ordering matters for events belonging to the same employee.
+Using employee ID as the key helps ensure that events for the same employee are consistently routed to the same partition.
+
+This is useful when ordering matters for multiple events belonging to the same employee.
+
+For example, an employee may generate multiple events during the lifecycle of the employee:
+
+EmployeeCreated
+EmployeeUpdated
+EmployeeDepartmentChanged
+
+If the same employee ID is used as the key for these events, Kafka can route them consistently to the same partition.
+
+This allows the consumer to process events for that employee in partition order.
+
+### Important Kafka Ordering Rule
+
+Kafka guarantees message ordering only within a partition.
+
+It does not provide a global ordering guarantee across all partitions of a topic.
+
+Therefore, using a stable key such as employee ID is useful when the application needs ordering for events belonging to the same entity.
+
 
 ## 10. Kafka Producer Configuration
 
 The reusable producer configuration is maintained in:
 
-````
 kafka-module/src/main/java/com/worksphere/kafka/config/KafkaProducerConfig.java
-````
+
 The producer is configured to serialize:
-````
-Key   -> String
-Value -> JSON
-````
+
+Key   → String
+Value → JSON
+
 The important serializers are:
-````
+
 StringSerializer
 JsonSerializer
-````
-Therefore, an EmployeeCreatedEvent is converted into JSON before being sent to Kafka.
+
+Therefore, an `EmployeeCreatedEvent` is converted into JSON before being sent to Kafka.
 
 Example event:
 
-````
 {
-  "employeeId": 13,
-  "firstName": "Amey",
-  "lastName": "Sharma",
-  "email": "amey.sharma@example.com",
-  "salary": 65000.0,
-  "departmentId": 1
+"employeeId": 13,
+"firstName": "Amey",
+"lastName": "Sharma",
+"email": "amey.sharma@example.com",
+"salary": 65000.0,
+"departmentId": 1
 }
-````
+
+### Configurable Kafka Bootstrap Server
+
+The producer configuration does not hardcode the Kafka server address.
+
+Instead, it reads the bootstrap server from:
+
+spring.kafka.bootstrap-servers
+
+The shared configuration uses:
+
+localhost:9092
+
+as the default value.
+
+This allows the same Kafka module to work in different environments.
+
+For example:
+
+Local application
+→ localhost:9092
+
+When the application runs inside Docker:
+
+Docker application
+→ kafka:9092
+
+Docker Compose provides the Docker-specific value:
+
+SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+
+This distinction is important because `localhost` inside a Docker container refers to the current container itself, not to the Kafka container.
+
+Therefore, Dockerized WorkSphere services communicate with Kafka using the Docker service name:
+
+kafka:9092
+
+while applications running directly on the host machine can use:
+
+localhost:9092
+
+
 ## 11. Kafka Consumer Configuration
 
 The reusable consumer configuration is maintained in:
-````
+
 kafka-module/src/main/java/com/worksphere/kafka/config/KafkaConsumerConfig.java
-````
+
 The consumer is configured to deserialize Kafka messages into Java objects.
 
 The configuration uses:
-````
+
 JsonDeserializer
-````
+
 The trusted package configuration allows the Kafka event class to be deserialized safely.
 
 For WorkSphere:
-````
+
 com.worksphere.kafka.event
-````
+
 is configured as a trusted package.
 
+This allows the consumer to deserialize the JSON message back into the corresponding Java event object:
+
+EmployeeCreatedEvent
+
+### Configurable Kafka Bootstrap Server
+
+The consumer configuration reads the Kafka bootstrap server from:
+
+spring.kafka.bootstrap-servers
+
+The default value is:
+
+localhost:9092
+
+When running inside Docker, the application receives:
+
+kafka:9092
+
+through the Docker environment configuration.
+
+Therefore:
+
+Host machine
+→ localhost:9092
+
+Docker containers
+→ kafka:9092
+
+### Consumer Groups
+
+WorkSphere uses separate Kafka consumer groups for the services consuming the `employee-created` event.
+
+Payroll Service uses:
+
+worksphere-payroll-group
+
+Leave Service uses:
+
+worksphere-leave-group
+
+The architecture is:
+
+                         employee-created
+                               |
+                    +----------+----------+
+                    |                     |
+                    v                     v
+             Payroll Service        Leave Service
+             worksphere-            worksphere-
+             payroll-group          leave-group
+                    |                     |
+                    v                     v
+             Create Payroll       Initialize Employee
+                                   Leave Balances
+
+Because Payroll Service and Leave Service use different consumer groups, each service receives and processes its own copy of the `employee-created` event.
+
+This allows multiple independent services to react to the same business event.
+
+The producer does not need to know which downstream services are consuming the event.
+
+This is one of the key benefits of event-driven architecture: the producer and consumers remain loosely coupled.
 ## 12. Initial Serialization Problem
 
-During development, Payroll Service initially produced this error:
-````
-MessageConversionException:
-Cannot convert from [java.lang.String]
-to [com.worksphere.kafka.event.EmployeeCreatedEvent]
-````
-The Kafka message payload was received as a JSON string instead of being converted into:
-````
-EmployeeCreatedEvent
-````
-The payload looked like:
-````
-{
-  "employeeId": 13,
-  "firstName": "Amey",
-  "lastName": "Sharma",
-  "email": "amey.sharma@example.com",
-  "salary": 65000.0,
-  "departmentId": 1
-}
-````
-But Spring Kafka was receiving it as:
-````
-java.lang.String
-````
-while the listener expected:
-````
-EmployeeCreatedEvent
-````
-The producer and consumer serialization/deserialization configuration was corrected.
+During development, Payroll Service initially produced a message conversion error because the Kafka payload was received as a `String` instead of being deserialized into the expected `EmployeeCreatedEvent` object.
 
-After the correction, Payroll Service successfully received the event as:
+The problem was conceptually:
 
-````
+Kafka message
+|
+v
+JSON payload
+|
+v
+Received as String
+|
+v
+Listener expects EmployeeCreatedEvent
+|
+v
+MessageConversionException
+
+The producer and consumer serialization/deserialization configuration was then aligned.
+
+The producer uses:
+
+StringSerializer
+JsonSerializer
+
+and the consumer uses:
+
+JsonDeserializer
+
+with the WorkSphere Kafka event package configured as trusted:
+
+com.worksphere.kafka.event
+
+After the configuration was corrected, Payroll Service successfully received the message as:
+
 EmployeeCreatedEvent
-````
+
+This demonstrates an important Kafka concept:
+
+The producer and consumer must agree on how the message key and value are serialized and deserialized.
+
+
 ## 13. Payroll Service as Kafka Consumer
 
-Payroll Service contains:
-````
+Payroll Service contains the Kafka consumer:
+
 payroll-service/src/main/java/com/worksphere/payroll/kafka/EmployeeEventConsumer.java
-````
-This class consumes:
-````
+
+This class consumes events from:
+
 employee-created
-````
-using:
-````
+
+using the consumer group:
+
+worksphere-payroll-group
+
+The listener is conceptually:
+
 @KafkaListener(
-        topics = "employee-created",
-        groupId = "worksphere-payroll-group"
+topics = "employee-created",
+groupId = "worksphere-payroll-group"
 )
-````
+
 The listener receives:
-````
-EmployeeCreatedEvent event
-````
+
+EmployeeCreatedEvent
+
 and processes the employee information.
+
+Payroll Service therefore acts as an independent Kafka consumer.
+
+It does not need Employee Service to directly call its payroll API when an employee is created.
+
 
 ## 14. Payroll Event Processing
 
-When Payroll Service receives an EmployeeCreatedEvent, it performs the following steps:
-````
-Receive EmployeeCreatedEvent
-        |
-        v
-Extract employeeId
-        |
-        v
-Check whether payroll already exists
-        |
-        +---- Yes ----> Skip duplicate event
-        |
-        No
-        |
-        v
-Create CreatePayrollRequest
-        |
-        v
-Create Payroll
-        |
-        v
-Calculate Net Salary
-        |
-        v
-Save Payroll
-````
-The initial payroll request is created using:
-````
-CreatePayrollRequest request = new CreatePayrollRequest(
-        event.employeeId(),
-        BigDecimal.valueOf(event.salary()),
-        BigDecimal.ZERO,
-        BigDecimal.ZERO
-);
-````
-Therefore:
+When Payroll Service receives an `EmployeeCreatedEvent`, it performs the following steps:
 
-````
+Receive EmployeeCreatedEvent
+|
+v
+Extract employeeId
+|
+v
+Check whether payroll already exists
+|
++---- Yes ----> Skip duplicate event
+|
+No
+|
+v
+Create CreatePayrollRequest
+|
+v
+Create Payroll
+|
+v
+Calculate Net Salary
+|
+v
+Save Payroll
+
+The initial payroll request is created using the employee information from the event.
+
+The salary received from the employee event is used as the basic salary.
+
+The initial values are:
+
 basicSalary = employee salary
 bonus       = 0
 tax         = 0
-````
+
 The payroll service then calculates:
-````
+
 Net Salary = Basic Salary + Bonus - Tax
-````
+
+For example:
+
+Basic Salary = 70000
+Bonus        = 0
+Tax          = 0
+
+Net Salary   = 70000 + 0 - 0
+= 70000
+
+The resulting payroll record is then stored in the Payroll Service database.
+
+
 ## 15. Idempotency
 
 Kafka consumers must consider the possibility that an event may be processed more than once.
 
 WorkSphere implements an idempotency check in Payroll Service.
 
-Before creating payroll:
-````
+Before creating payroll, the consumer checks whether payroll already exists for the employee:
+
 if (payrollRepository.existsByEmployeeId(event.employeeId())) {
-
-    log.info(
-            "Payroll already exists for employeeId={}. " +
-                    "Skipping duplicate event.",
-            event.employeeId()
-    );
-
-    return;
+log.info(
+"Payroll already exists for employeeId={}. Skipping duplicate event.",
+event.employeeId()
+);
+return;
 }
-````
-This means that if the same EmployeeCreatedEvent is delivered again, Payroll Service does not create another payroll record.
+
+This means that if the same `EmployeeCreatedEvent` is delivered again, Payroll Service does not create another payroll record.
 
 Example:
-````
+
 EmployeeCreatedEvent(employeeId=13)
-        |
-        v
+|
+v
 Payroll does not exist
-        |
-        v
+|
+v
 Create payroll
-````
+
 If the same event is delivered again:
-````
+
 EmployeeCreatedEvent(employeeId=13)
-        |
-        v
+|
+v
 Payroll already exists
-        |
-        v
-Skip event
-````
-This protects the system from duplicate business processing.
+|
+v
+Skip duplicate event
+
+This protects the business operation from duplicate event processing.
+
 
 ## 16. Database-Level Protection Against Duplicates
 
 Application-level idempotency is also supported by a database unique constraint.
 
-The Payroll entity contains:
-````
-@Table(
-    name = "payroll",
-    uniqueConstraints = {
-        @UniqueConstraint(
-            name = "uk_payroll_employee_id",
-            columnNames = "employee_id"
-        )
-    }
-)
-````
-The employee ID column is also unique:
-````
-@Column(
-        name = "employee_id",
-        nullable = false,
-        unique = true
-)
-private Long employeeId;
-````
-Therefore, the system has two layers of protection:
-````
+The Payroll entity contains a unique constraint on `employee_id`.
+
+Conceptually:
+
+payroll
+-------------------------
+employee_id UNIQUE
+
+The employee ID column is therefore unique in the Payroll table.
+
+This gives WorkSphere two layers of duplicate protection:
+
 Kafka duplicate event
-        |
-        v
+|
+v
 Application idempotency check
-        |
-        v
+|
+v
 Database unique constraint
-````
-This is an important enterprise design principle.
 
-## 17. Consumer Group
+The application check prevents unnecessary processing.
 
-Payroll Service uses the consumer group:
+The database constraint provides an additional data-integrity guarantee.
 
-```` worksphere-payroll-group ````
+This is an important enterprise design principle: critical uniqueness rules should not rely only on application code.
 
-A consumer group allows Kafka to coordinate consumption among multiple instances of the same service.
-For example:
 
-````
+## 17. Consumer Groups
+
+A Kafka consumer group allows multiple instances of the same service to share the processing of a topic.
+
+Payroll Service uses:
+
 worksphere-payroll-group
 
-        |
-        +---- Payroll Instance 1
-        |
-        +---- Payroll Instance 2
-        |
-        +---- Payroll Instance 3
-````
-Kafka distributes partitions among active consumers in the group.
+Leave Service uses:
 
-This allows Payroll Service to scale horizontally.
+worksphere-leave-group
+
+These are separate consumer groups.
+
+This means both services independently consume the same `employee-created` event.
+
+Conceptually:
+
+                     employee-created
+                            |
+              +-------------+-------------+
+              |                           |
+              v                           v
+      Payroll Consumer              Leave Consumer
+      payroll-group                 leave-group
+              |                           |
+              v                           v
+       Create Payroll             Initialize Leave
+                                  Balances
+
+If Payroll Service has multiple instances:
+
+worksphere-payroll-group
+|
++------+------+
+|      |      |
+v      v      v
+Payroll  Payroll  Payroll
+1        2        3
+
+Kafka can distribute partitions among the active consumers in the same group.
+
+This allows a consumer service to scale horizontally.
+
+Consumers belonging to different groups receive independent copies of the topic's records.
+
 
 ## 18. Kafka Partitions
 
-The employee-created topic currently has multiple partitions.
+Kafka stores messages in partitions.
 
-For example:
-````
+WorkSphere's Docker Kafka broker is configured with:
+
+KAFKA_NUM_PARTITIONS=3
+
+This establishes three as the broker's default partition count for newly created topics when a partition count is not otherwise specified.
+
+Conceptually, a topic can contain:
+
 employee-created
 
 Partition 0
 Partition 1
 Partition 2
-````
-Kafka stores messages in partitions.
 
-A message is assigned to a partition when it is produced.
+Messages are assigned to partitions when they are produced.
 
-The consumer group then processes those partitions.
+Because Employee Service uses employee ID as the message key, Kafka can consistently route messages for the same key to the same partition.
 
-Example:
-````
-Topic: employee-created
+Partitions provide the foundation for Kafka's parallel processing model.
 
-Partition 0
-    |
-    +-- Employee Event
-    +-- Employee Event
+Multiple partitions allow multiple consumers within the same consumer group to process different partitions concurrently.
 
-Partition 1
-    |
-    +-- Employee Event
-    +-- Employee Event
-
-Partition 2
-    |
-    +-- Employee Event
-````
-Partitions allow Kafka to process messages concurrently.
 
 ## 19. Kafka Offset
 
-Every Kafka message has an offset within its partition.
+Every Kafka record has an offset within its partition.
 
 For example:
-````
+
 Partition 0
 
 Offset 0
 Offset 1
 Offset 2
 Offset 3
-````
-The offset identifies the position of a message within a partition.
 
-Kafka consumers maintain their progress using offsets.
+The offset represents the record's position within that partition.
+
+Kafka consumers use offsets to keep track of their processing position.
 
 For example:
-````
+
 CURRENT-OFFSET = 2
 LOG-END-OFFSET = 2
 LAG            = 0
-````
-This means the consumer has processed all available messages in that partition.
+
+This indicates that the consumer has caught up with the available records for that partition.
+
+Offsets are maintained per consumer group and partition.
+
+Therefore, two different consumer groups can have different offsets for the same Kafka topic.
+
 
 ## 20. Kafka Consumer Lag
 
-Consumer lag represents how many messages are waiting to be processed.
+Consumer lag represents records that have not yet been consumed up to the current end of the partition.
 
-Formula:
-````
+A simplified formula is:
+
 Lag = Log End Offset - Current Offset
-````
+
 Example:
-````
+
 Current Offset = 5
 Log End Offset = 8
 
 Lag = 8 - 5
-    = 3
-````
-Therefore, three messages are still waiting to be consumed.
+= 3
 
-In our testing, we used:
-````
-docker exec -it worksphere-kafka /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --group worksphere-payroll-group --describe
-````
-This allowed us to inspect:
-````
-CURRENT-OFFSET
-LOG-END-OFFSET
-LAG
-````
-## 21. Resetting Kafka Offsets
+This means the consumer is three records behind the current end of the partition.
 
-During testing, Kafka consumer offsets can be reset.
+Consumer lag is an important operational metric.
 
-For example:
-````
-docker exec -it worksphere-kafka /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --group worksphere-payroll-group --topic employee-created --reset-offsets --to-earliest --execute
-````
-Then:
-````
---to-earliest
-````
-option moves the consumer group's offsets to the earliest available messages.
+A continuously increasing lag can indicate that:
 
-This does not create new messages.
+Producer rate > Consumer processing rate
 
-It changes where the consumer starts reading messages from.
+Possible causes include:
 
-## 22. What Happens After Offset Reset
+Slow processing
+Insufficient consumer instances
+Database latency
+External service latency
+Consumer failures
+Resource constraints
 
-Suppose the topic contains:
-````
-Offset 0
-Offset 1
-Offset 2
-````
-The consumer has already processed:
-````
-Offset 0
-Offset 1
-Offset 2
-````
-The current offset is at the end.
+Monitoring consumer lag is therefore important in production Kafka systems.
 
-If we reset to earliest:
 
-````
-Offset 0
-   |
-   v
-Consumer starts reading again
-````
-The consumer can process the old messages again.
+## 21. Inspecting Kafka Consumer Groups
 
-This is useful for testing replay behavior.
-
-Because Payroll Service has idempotency protection, replaying an existing employee-created event should not create another payroll record.
-
-## 23. Kafka Event Replay
-
-Kafka's retained messages allow consumers to replay historical events by changing their offsets.
-
-Example:
-````
-Kafka Topic
-
-0 ---- 1 ---- 2 ---- 3 ---- 4
-                    ^
-                    |
-              Current position
-````
-After resetting:
-````
-0 ---- 1 ---- 2 ---- 3 ---- 4
-^
-|
-Consumer starts again
-````
-This is useful for:
-
-* Debugging
-* Reprocessing events
-* Recovering from failures
-* Testing
-* Rebuilding derived data
-
-## 24. Duplicate Event Handling
-
-A duplicate event can occur for several reasons.
+During Docker testing, Kafka consumer group information can be inspected from inside the Kafka container.
 
 For example:
 
-Consumer retry
-Consumer restart
-Offset replay
-At-least-once delivery
-Manual offset reset
-Temporary processing failure
-
-WorkSphere handles duplicate employee-created events using:
-````
-Employee ID
-+
-Database uniqueness
-+
-Application idempotency
-````
-Therefore, duplicate delivery does not automatically mean duplicate business data.
-
-## 25. At-Least-Once Processing
-
-The current Kafka design should be considered with an at-least-once processing mindset.
-
-An event may potentially be delivered or processed more than once.
-
-Therefore, consumers should be idempotent.
-
-Payroll Service follows this principle by checking:
-````
-payrollRepository.existsByEmployeeId(event.employeeId())
-````
-before creating payroll.
-
-This is preferable to assuming that every Kafka message will be delivered exactly once from the application's business perspective.
-
-## 26. Kafka Retry Dependency
-
-The WorkSphere Kafka module uses Spring Kafka.
-
-The dependency tree was verified using:
-````
-mvn dependency:tree "-pl" "payroll-service" "-Dincludes=org.springframework.kafka"
-````
-The project currently resolves:
-````
-org.springframework.kafka:spring-kafka:3.3.8
-````
-The Spring Kafka dependency also brings Spring Retry:
-
-````
-org.springframework.retry:spring-retry:2.0.12
-````
-The dependency was verified using:
-````
-mvn dependency:tree "-pl" "payroll-service" "-Dincludes=org.springframework.retry"
-````
-## 27. Kafka Retry and Failure Handling
-
-Kafka processing can fail because of:
-
-Temporary service failures
-Database failures
-Invalid data
-Network failures
-Serialization problems
-Business processing exceptions
-
-Spring Kafka provides mechanisms for handling failed listener processing.
-
-The WorkSphere project is being developed toward retry and dead-letter handling so that temporary failures do not immediately result in permanent message loss.
-
-The Kafka retry infrastructure uses separate consumer groups/topics where configured.
-
-## 28. Dead Letter Topic Concept
-
-A Dead Letter Topic (DLT) is used for messages that cannot be successfully processed after the configured retry attempts.
-
-Conceptually:
-````
-employee-created
-       |
-       v
-Payroll Consumer
-       |
-       | Failure
-       v
-Retry
-       |
-       | Failure again
-       v
-Retry
-       |
-       | Maximum attempts reached
-       v
-Dead Letter Topic
-````
-This prevents a permanently problematic message from continuously blocking normal processing.
-
-## 29. Kafka Retry Topics
-
-During the WorkSphere Kafka retry implementation, retry consumer groups such as:
-````
-worksphere-payroll-group-retry-2000
-worksphere-payroll-group-retry-4000
-worksphere-payroll-group-retry-8000
-````
-and the DLT consumer group:
-```` worksphere-payroll-group-dlt````
-
-were observed during testing.
-
-The retry groups represent delayed retry processing.
-
-The exact retry behavior is controlled by the Spring Kafka retry configuration implemented in the project.
-
-## 30. Docker Kafka Setup
-
-Kafka is currently run using Docker.
-
-The Kafka container is:
-````
-worksphere-kafka
-````
-The exposed port is:
-````
-9092
-````
-The container was verified using:
-
-````
-docker ps --format "table {{.Names}}\t{{.Ports}}"
-````
-Example:
-````
-NAMES              PORTS
-worksphere-kafka   0.0.0.0:9092->9092/tcp
-````
-Kafka is therefore accessible from the local WorkSphere services using:
-
-```` localhost:9092 ````
-
-## 31. Kafka Docker Compose
-
-Kafka infrastructure is maintained under:
-````
-docker/docker-compose.yml
-````
-The Docker Compose file allows Kafka infrastructure to be started consistently.
-
-Example command:
-````
-docker compose -f docker/docker-compose.yml up -d
-````
-To verify the container:
-````
-docker ps
-````
-To stop the infrastructure:
-````
-docker compose -f docker/docker-compose.yml down
-````
-
-## 32. Kafka Troubleshooting
-
-One of the connection errors observed during development was:
-
-````
-Bootstrap broker localhost:9092 disconnected
-````
-and:
-````
-Connection to node -1 (localhost/127.0.0.1:9092)
-could not be established.
-Node may not be available.
-````
-This occurred when Kafka was not available on the expected port.
-
-The Kafka Docker container was then started.
-
-After Kafka became available on:
-
-````
-localhost:9092
-````
-the Payroll Service consumer successfully connected.
-
-## 33. Verifying Kafka Consumer Group
-
-The following command can be used to inspect the Payroll consumer group
-
-````
 docker exec -it worksphere-kafka /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --group worksphere-payroll-group --describe
-````
 
-The output provides:
-````
+The command can provide information such as:
+
 GROUP
 TOPIC
 PARTITION
 CURRENT-OFFSET
 LOG-END-OFFSET
 LAG
-CONSUMER-ID
-HOST
-CLIENT-ID
-````
-This is useful for monitoring Kafka consumption.
 
-## 34. Example Consumer Group Output
+This is useful when troubleshooting whether Payroll Service is consuming events correctly.
 
-Example:
-````
-GROUP                    TOPIC            PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG
-worksphere-payroll-group employee-created 0          2               2               0
-worksphere-payroll-group employee-created 1          3               3               0
-worksphere-payroll-group employee-created 2 
-````
-The first two partitions have:
-````
-LAG = 0
-````
-meaning they are fully consumed.
+The Kafka container itself can communicate with the Kafka broker using:
 
-The third partition has:
-````
-LAG = 1
-````
-meaning one message remains to be processed.
-## 35. End-to-End Employee Creation Flow
+localhost:9092
 
-The complete current flow is:
-````
-Client
-  |
-  | Create Employee
-  v
-API Gateway
-  |
-  v
-Employee Service
-  |
-  | Validate request
-  |
-  | Save employee in database
-  |
-  | Publish EmployeeCreatedEvent
-  v
-Kafka
-  |
-  | employee-created
-  |
-  +--------------------------+
-  |                          |
-  v                          v
-Department Consumer      Payroll Consumer
-                              |
-                              v
-                       Check employeeId
-                              |
-                     +--------+--------+
-                     |                 |
-                  Exists             Not Exists
-                     |                 |
-                     v                 v
-                   Skip          Create Payroll
-                                       |
-                                       v
-                                  Save Payroll
-````
-This demonstrates asynchronous communication between WorkSphere microservices.
+This is different from the address used by other Docker containers.
 
-## 36. REST vs Kafka Communication
 
-WorkSphere uses both synchronous and asynchronous communication.
+## 22. Resetting Kafka Offsets
 
-## REST / OpenFeign
+During development and testing, Kafka consumer offsets can be reset.
 
-Used when the caller needs an immediate response.
+For example:
 
-Example:
-````
-Employee Service
-      |
-      | REST / Feign
-      v
-Department Service
-````
-The Employee Service waits for the Department Service response.
-
-## Kafka
-
-Used when an event can be processed asynchronously.
-
-Example:
-````
-
-Employee Service
-      |
-      | EmployeeCreatedEvent
-      v
-Kafka
-      |
-      v
-Payroll Service
-````
-Employee Service does not need to wait for Payroll Service to complete payroll processing.
-
-## 37. Why Kafka Instead of Direct REST for Employee Creation Events
-
-A direct REST approach would create tighter coupling:
-````
-Employee Service
-      |
-      | POST /payroll
-      v
-Payroll Service
-````
-If Payroll Service is unavailable, Employee Service may also be affected.
-
-With Kafka:
-````
-Employee Service
-      |
-      | Publish Event
-      v
-Kafka
-      |
-      v
-Payroll Service
-````
-Employee Service and Payroll Service are decoupled.
-
-Kafka retains the event so the consumer can process it when it becomes available, subject to the configured retention and consumer behavior.
-
-## 38. Advantages of the WorkSphere Kafka Design
-
-The current architecture provides:
-
-## Loose Coupling
-
-Employee Service does not directly depend on Payroll Service for employee creation processing.
-
-## Asynchronous Processing
-
-Payroll creation can happen independently after the employee creation event is published.
-
-## Scalability
-
-Multiple Payroll Service instances can consume events using the same consumer group.
-
-## Replayability
-
-Kafka offsets allow historical events to be replayed.
-
-## Idempotency
-
-Duplicate events do not create duplicate payroll records.
-
-## Resilience
-
-Retry and dead-letter mechanisms can isolate failed event processing.
-
-## Reusability
-
-Common Kafka configuration and event contracts are maintained in the shared kafka-module.
-
-## 39. Current Kafka Components in WorkSphere
-
-The current implementation contains:
-````
-kafka-module
-    |
-    +-- KafkaProducerConfig
-    |
-    +-- KafkaConsumerConfig
-    |
-    +-- EmployeeCreatedEvent
-    |
-    +-- KafkaTopics
-````
-Employee Service:
-````
-EmployeeKafkaPublisher
-````
-Department Service:
-````
-EmployeeEventConsumer
-````
-Payroll Service:
-````
-EmployeeEventConsumer
-````
-Infrastructure:
-````
-docker/docker-compose.yml
-````
-## 40. Important Kafka Concepts Used in WorkSphere
-
-The implementation demonstrates the following Kafka concepts:
-
-````
-Producer
-Consumer
-Topic
-Partition
-Message Key
-Consumer Group
-Offset
-Consumer Lag
-Serialization
-Deserialization
-Event
-Asynchronous Communication
-Idempotency
-Retry
-Dead Letter Topic
-Event Replay
-Horizontal Scaling
-````
-These concepts form the foundation of the WorkSphere event-driven architecture.
-
-## 41. Testing Checklist
-
-Kafka functionality can be tested using the following checklist:
-
-````
-[ ] Start Kafka using Docker
-[ ] Start Eureka Server
-[ ] Start required microservices
-[ ] Create an employee
-[ ] Verify EmployeeCreatedEvent is published
-[ ] Verify Payroll Service receives the event
-[ ] Verify payroll record is created
-[ ] Create/replay the same event
-[ ] Verify duplicate payroll is not created
-[ ] Check consumer group offsets
-[ ] Check consumer lag
-[ ] Test offset reset
-[ ] Test retry behavior
-[ ] Test failed message handling
-[ ] Verify retry topics
-[ ] Verify Dead Letter Topic behavior
-````
-## 42. Example Kafka Development Commands
-
-Start Kafka:
-````
-docker compose -f docker/docker-compose.yml up -d
-````
-Check running containers:
-```` docker ps  ````
-
-Check Kafka container logs:
-````
-docker logs worksphere-kafka --tail 20
-````
-Check Payroll consumer group:
-````
-docker exec -it worksphere-kafka /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --group worksphere-payroll-group --describe
-````
-Reset Payroll consumer offsets to earliest:
-````
 docker exec -it worksphere-kafka /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --group worksphere-payroll-group --topic employee-created --reset-offsets --to-earliest --execute
-````
-## 43. Lessons Learned During Implementation
 
-Several practical Kafka issues were encountered while developing WorkSphere.
+The:
 
-## Serialization and Deserialization Must Match
+--to-earliest
 
-The producer and consumer must agree on the message format.
+option moves the consumer group's offset to the earliest available record.
 
-Initially the consumer received:
+This does not create new Kafka messages.
 
-```` String  ````
-instead of:
-```` EmployeeCreatedEvent ````
+It changes the position from which the consumer reads the existing records.
 
-This caused a MessageConversionException.
+This feature is particularly useful when testing event replay and idempotency.
 
-Correct Kafka serializer/deserializer configuration resolved the problem.
 
-## Kafka Must Be Available Before Consumers Can Connect
+## 23. Kafka Event Replay
 
-If Kafka is unavailable, the consumer repeatedly attempts to reconnect.
+Kafka retains records according to its topic retention configuration.
 
-Typical messages include:
-```` Bootstrap broker localhost:9092 disconnected ````
+A consumer can replay existing records by moving its consumer group offset backwards.
 
-## Consumer Groups Maintain Progress
+For example:
 
-Kafka does not simply "delete" a message after a consumer reads it.
-
-The consumer group tracks its position using offsets.
-
-## Duplicate Processing Must Be Expected
-
-Consumers should not assume that an event will only ever be processed once.
-
-Business operations should be designed to be idempotent where appropriate.
-
-## Offset Reset Is a Testing Tool
-
-Resetting offsets allows old messages to be replayed without creating new messages.
-
-This was useful for validating WorkSphere's duplicate-event handling.
-
-## 44. Interview Explanation
-
-A concise explanation of the WorkSphere Kafka implementation is:
-
-"WorkSphere uses Kafka for asynchronous event-driven communication between microservices. When an employee is created, Employee Service publishes an EmployeeCreatedEvent to the employee-created Kafka topic. Payroll Service consumes that event using the worksphere-payroll-group consumer group and automatically creates the employee's initial payroll. We use employeeId as the Kafka message key, JSON serialization/deserialization for event communication, and multiple partitions for scalability. We also implemented idempotency in Payroll Service by checking whether payroll already exists for the employee before processing the event. Kafka consumer offsets allow us to track processing progress and replay events when required. We also have retry and dead-letter handling for failed message processing."
-
-## 45. Current Architecture Summary
-
-The Kafka-based architecture can be summarized as:
-````
-                    WorkSphere
-                         |
-             +-----------+-----------+
-             |                       |
-       Synchronous              Asynchronous
-       Communication            Communication
-             |                       |
-        REST / Feign                Kafka
-             |                       |
-             v                       v
-      Department Service       employee-created
-                                      |
-                                      v
-                              Payroll Service
-````
-Kafka provides the asynchronous communication backbone for business events while REST/OpenFeign remains available for synchronous request-response communication.
-
-## 46. Conclusion
-
-Kafka provides WorkSphere with an event-driven communication model that reduces direct coupling between microservices.
-
-The current implementation demonstrates:
-
-````
-Employee Creation
-       |
-       v
-EmployeeCreatedEvent
-       |
-       v
 Kafka Topic
-       |
-       +--------------------+
-       |                    |
-       v                    v
-Department Service     Payroll Service
-                            |
-                            v
-                    Idempotent Processing
-                            |
-                            v
-                      Payroll Database
-````
-The implementation also covers important production-oriented Kafka concepts such as:
 
-````
-Consumer Groups
-Partitions
-Offsets
-Consumer Lag
-Event Replay
-Idempotency
+Offset 0 ---- Offset 1 ---- Offset 2 ---- Offset 3 ---- Offset 4
+^
+|
+Current position
+
+After resetting the offset:
+
+Offset 0 ---- Offset 1 ---- Offset 2 ---- Offset 3 ---- Offset 4
+^
+|
+Consumer starts reading again
+
+This allows previously produced events to be processed again.
+
+Event replay can be useful for:
+
+- Debugging
+- Reprocessing events
+- Recovering derived data
+- Testing consumers
+- Rebuilding downstream state
+
+Replay also demonstrates why idempotent consumers are important.
+
+
+## 24. Duplicate Event Handling
+
+A duplicate event can occur for several reasons, including:
+
+- Consumer retry
+- Consumer restart
+- Offset replay
+- At-least-once processing
+- Manual offset reset
+- Temporary processing failure
+
+WorkSphere protects Payroll processing using:
+
+Employee ID
++
+Application idempotency check
++
+Database unique constraint
+
+Therefore, receiving the same employee-created event more than once does not automatically create multiple payroll records.
+
+This is especially important when using retry mechanisms, because a failed processing attempt may cause the same event to be attempted again.
+
+
+## 25. At-Least-Once Processing
+
+The current WorkSphere Kafka design should be understood using an at-least-once processing model.
+
+This means an event may potentially be delivered or processed more than once.
+
+Therefore, Kafka consumers should be designed to tolerate duplicate delivery.
+
+Payroll Service follows this principle by checking:
+
+payrollRepository.existsByEmployeeId(event.employeeId())
+
+before creating payroll.
+
+The important architectural principle is:
+
+Kafka delivery
+|
+v
+Consumer processing
+|
+v
+Idempotent business operation
+
+The application should not assume that every event will result in exactly one business-side effect.
+
+
+## 26. Retry Processing
+
+WorkSphere uses Spring Kafka retry support for the employee-created event consumers.
+
+Payroll Service and Leave Service use:
+
+@RetryableTopic(
+attempts = "4",
+backoff = @Backoff(
+delay = 2000,
+multiplier = 2.0
+)
+)
+
+The configuration means that a failed event-processing attempt can be retried according to the configured retry policy.
+
+The configured backoff starts at:
+
+2000 ms
+
+with a multiplier of:
+
+2.0
+
+Conceptually, the retry delay increases between attempts.
+
+The purpose of retry processing is to handle temporary failures without immediately losing the event.
+
+Examples of temporary failures can include:
+
+Temporary database problem
+Temporary downstream dependency failure
+Transient infrastructure issue
+
+Retry is different from ignoring an exception.
+
+The consumer processing must fail in a way that allows Spring Kafka's retry mechanism to handle the event.
+
+
+## 27. Dead Letter Topic
+
+If an event continues to fail after the configured retry attempts, Spring Kafka can route the failed record to a Dead Letter Topic (DLT).
+
+WorkSphere defines a DLT handler using:
+
+@DltHandler
+
+Conceptually:
+
+employee-created
+|
+v
+Consumer
+|
+v
+Processing fails
+|
+v
 Retry
-Dead Letter Topics
-Serialization
-Deserialization
-Docker-based Kafka Infrastructure
-````
-This forms the event-driven communication foundation of the WorkSphere platform.
+|
+v
+Retry
+|
+v
+Retry
+|
+v
+Retry exhausted
+|
+v
+Dead Letter Topic
+
+The DLT prevents a permanently failing record from continuously blocking normal processing.
+
+The DLT handler logs information about the employee event that was moved to the DLT.
 
 
+## 28. Retry and DLT Flow in Payroll Service
 
+The Payroll Service processing flow is:
+
+Kafka
+|
+v
+employee-created
+|
+v
+Payroll Consumer
+|
++---- Success ----> Create Payroll
+|
++---- Failure
+|
+v
+Retry
+|
++---- Success ----> Create Payroll
+|
++---- Failure
+|
+v
+Retry Again
+|
+v
+Retry Exhausted
+|
+v
+DLT
+
+The consumer group is:
+
+worksphere-payroll-group
+
+The retry configuration is:
+
+Attempts       → 4
+Initial delay  → 2000 ms
+Multiplier     → 2.0
+
+The DLT handler records the failed event so that the failure can be investigated.
+
+
+## 29. Retry and DLT Flow in Leave Service
+
+Leave Service also consumes:
+
+employee-created
+
+using:
+
+worksphere-leave-group
+
+Its consumer performs:
+
+Receive EmployeeCreatedEvent
+|
+v
+Extract employeeId
+|
+v
+Initialize employee leave balances
+
+The consumer uses the same retry pattern:
+
+Attempts       → 4
+Initial delay  → 2000 ms
+Multiplier     → 2.0
+
+If processing continues to fail after the configured attempts, the event can be handled by the DLT handler.
+
+The Leave Service consumer therefore follows the same resilience pattern as the Payroll consumer.
+
+
+## 30. Leave Service as Kafka Consumer
+
+Leave Service contains an employee event consumer:
+
+leave-service/src/main/java/com/worksphere/leave/kafka/EmployeeEventConsumer.java
+
+It listens to:
+
+employee-created
+
+using:
+
+worksphere-leave-group
+
+When an `EmployeeCreatedEvent` is received, Leave Service calls its leave balance service:
+
+EmployeeCreatedEvent
+|
+v
+EmployeeEventConsumer
+|
+v
+LeaveBalanceService
+|
+v
+Initialize Employee Leave Balances
+
+This means employee creation can automatically trigger leave balance initialization without Employee Service directly calling Leave Service.
+
+
+## 31. Employee Created Event Fan-Out
+
+The same Kafka event can be consumed by multiple independent services.
+
+The current WorkSphere architecture is:
+
+                         Employee Service
+                                |
+                                |
+                     EmployeeCreatedEvent
+                                |
+                                v
+                       Kafka: employee-created
+                                |
+                 +--------------+--------------+
+                 |                             |
+                 v                             v
+          Payroll Service                Leave Service
+          payroll-group                 leave-group
+                 |                             |
+                 v                             v
+          Create Payroll              Initialize Leave
+                                      Balances
+
+The producer publishes the event once.
+
+Each consumer group independently receives the event.
+
+This is commonly referred to as event fan-out.
+
+
+## 32. Why Separate Consumer Groups Matter
+
+Payroll Service and Leave Service intentionally use different consumer groups.
+
+Payroll:
+
+worksphere-payroll-group
+
+Leave:
+
+worksphere-leave-group
+
+If both services used the same consumer group, Kafka would treat them as consumers belonging to the same processing group.
+
+With separate groups:
+
+employee-created
+|
++----------------------+
+|                      |
+v                      v
+payroll-group              leave-group
+|                      |
+v                      v
+Payroll processing       Leave processing
+
+This allows the same business event to trigger independent downstream workflows.
+
+This is one of the main reasons Kafka is useful for event-driven microservice architectures.
+
+
+## 33. Kafka in Docker
+
+WorkSphere runs Kafka using Docker Compose.
+
+The Kafka container is:
+
+worksphere-kafka
+
+The Docker Compose Kafka service uses separate listeners for internal Docker communication and external host access.
+
+The important addresses are:
+
+Docker containers
+→ kafka:9092
+
+Host machine
+→ localhost:29092
+
+Kafka container itself
+→ localhost:9092
+
+This distinction is important.
+
+Inside a Docker container, `localhost` refers to that container.
+
+Therefore, an application container should not use:
+
+localhost:9092
+
+to reach another container's Kafka broker.
+
+Instead, Dockerized WorkSphere services use:
+
+kafka:9092
+
+
+## 34. Kafka Internal and External Listeners
+
+The Kafka Docker configuration defines:
+
+INTERNAL://kafka:9092
+EXTERNAL://localhost:29092
+
+The listener configuration separates:
+
+Internal Docker communication
+
+from:
+
+Host machine communication
+
+Conceptually:
+
+                 Docker Network
+                      |
+        +-------------+-------------+
+        |                           |
+        v                           v
+Employee Service              Payroll Service
+|                           |
++-------------+-------------+
+|
+v
+kafka:9092
+|
+Kafka Broker
+|
+v
+localhost:29092
+for host access
+
+This configuration allows Dockerized services to communicate using the Docker service name while still allowing host-based tools to connect through the external listener.
+
+
+## 35. Docker Kafka Networking Problem
+
+During Docker testing, Kafka initially used:
+
+localhost:9092
+
+inside shared producer and consumer configuration.
+
+This caused problems for Dockerized services.
+
+Inside the Payroll container:
+
+localhost
+
+meant:
+
+Payroll container
+
+rather than:
+
+Kafka container
+
+As a result, the Kafka consumer could not correctly communicate with the broker.
+
+The same issue can occur with Kafka producers.
+
+The solution was to make the Kafka bootstrap server configurable.
+
+
+## 36. Environment-Specific Kafka Configuration
+
+The shared producer and consumer configurations read:
+
+spring.kafka.bootstrap-servers
+
+instead of hardcoding the Docker address.
+
+The default value is:
+
+localhost:9092
+
+This is useful when running an application directly from the host environment.
+
+Dockerized services receive:
+
+SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+
+Therefore:
+
+Local application
+→ localhost:9092
+
+Dockerized application
+→ kafka:9092
+
+Host-based Kafka client
+→ localhost:29092
+
+This approach keeps the shared Kafka module reusable across environments.
+
+The application code does not need to be changed when moving between local execution and Docker execution.
+
+
+## 37. End-to-End Employee → Kafka → Payroll Flow
+
+The complete employee creation flow is:
+
+Client
+|
+| POST Employee
+v
+Employee Service
+|
+| Save Employee
+|
+| Publish EmployeeCreatedEvent
+v
+Kafka
+|
+| employee-created
+|
++----------------------------+
+|                            |
+v                            v
+Payroll Service             Leave Service
+|                            |
+| Create Payroll             | Initialize Leave Balances
+v                            v
+Payroll Database            Leave Database
+
+This architecture separates the initial employee operation from downstream processing.
+
+Employee Service publishes the business event.
+
+Payroll Service independently reacts to the event.
+
+Leave Service independently reacts to the same event.
+
+
+## 38. End-to-End Docker Verification
+
+The Kafka integration was verified using the Dockerized WorkSphere environment.
+
+A new employee was created through Employee Service.
+
+The created employee received:
+
+Employee ID: 2
+Salary: 70000
+
+Employee Service published:
+
+EmployeeCreatedEvent
+
+to:
+
+employee-created
+
+Payroll Service consumed the event and created the payroll record.
+
+The resulting Payroll record was verified from inside the Payroll container.
+
+The response was:
+
+{
+"id": 1,
+"employeeId": 2,
+"basicSalary": 70000.00,
+"bonus": 0.00,
+"tax": 0.00,
+"netSalary": 70000.00
+}
+
+This verifies the complete flow:
+
+Employee Service
+|
+v
+Kafka employee-created
+|
+v
+Payroll Service
+|
+v
+Payroll Database
+
+The verification demonstrates that the Dockerized Kafka producer and consumer can communicate successfully using:
+
+kafka:9092
+
+
+## 39. Verifying Payroll Consumer Processing
+
+The Payroll Service consumer can be monitored through Docker logs.
+
+For example:
+
+docker logs worksphere-payroll
+
+Useful Kafka-related information includes:
+
+Consumer started
+Partition assignment
+Consumer group
+Kafka broker connection
+EmployeeCreatedEvent processing
+
+The Kafka consumer group can also be inspected from the Kafka container.
+
+The combination of:
+
+Application logs
++
+Kafka consumer group information
++
+Database verification
+
+provides a practical way to verify event-driven processing.
+
+
+## 40. Common Kafka Troubleshooting
+
+### Problem 1: Consumer Cannot Connect to Kafka
+
+Possible error:
+
+Timed out waiting for a node assignment
+
+Check the Kafka bootstrap server.
+
+For Dockerized applications:
+
+kafka:9092
+
+For host-based applications:
+
+localhost:9092
+
+For host-based access to the Docker Kafka external listener:
+
+localhost:29092
+
+
+### Problem 2: Message Conversion Error
+
+Example:
+
+MessageConversionException
+
+Check:
+
+Producer Serializer
+Consumer Deserializer
+Trusted Packages
+Event Class
+
+The producer should serialize the event as JSON and the consumer should deserialize it into:
+
+EmployeeCreatedEvent
+
+
+### Problem 3: Consumer Receives Nothing
+
+Check:
+
+Topic name
+Consumer group
+Kafka connection
+Consumer logs
+Consumer offsets
+Consumer lag
+
+Also verify that the producer actually published the event.
+
+
+### Problem 4: Duplicate Payroll
+
+Check:
+
+payrollRepository.existsByEmployeeId(...)
+
+and the database unique constraint on:
+
+employee_id
+
+
+### Problem 5: Docker Uses localhost
+
+If a Dockerized service is configured with:
+
+localhost:9092
+
+verify whether it is actually intended to connect to the Kafka broker inside the same container.
+
+For communication with the Kafka Docker service, use:
+
+kafka:9092
+
+
+## 41. REST vs Kafka Communication
+
+WorkSphere uses both synchronous REST communication and asynchronous Kafka communication.
+
+### REST
+
+REST is appropriate when an immediate response is required.
+
+Example:
+
+Client
+|
+| GET Employee
+v
+Employee Service
+|
+v
+Response
+
+The caller waits for the response.
+
+### Kafka
+
+Kafka is appropriate when an event can be processed asynchronously.
+
+Example:
+
+Employee Service
+|
+| EmployeeCreatedEvent
+v
+Kafka
+|
++------------+
+|            |
+v            v
+Payroll        Leave
+
+The producer publishes the event without requiring a synchronous response from every downstream consumer.
+
+The two communication styles serve different purposes and can coexist in the same microservice architecture.
+
+
+## 42. Current Kafka Implementation Status
+
+The current WorkSphere Kafka implementation includes:
+
+### Implemented
+
+- Shared `kafka-module`
+- `EmployeeCreatedEvent`
+- `KafkaTopics`
+- Kafka producer configuration
+- Kafka consumer configuration
+- JSON serialization
+- JSON deserialization
+- Employee Service Kafka producer
+- Payroll Service Kafka consumer
+- Leave Service Kafka consumer
+- Separate consumer groups
+- Employee ID as Kafka message key
+- Payroll idempotency check
+- Database uniqueness protection
+- Retry configuration
+- DLT handlers
+- Docker Kafka
+- Internal Docker Kafka networking
+- External Kafka listener
+- Environment-specific bootstrap server configuration
+
+### Verified
+
+The following flow has been verified in Docker:
+
+Employee Service
+|
+v
+employee-created
+|
+v
+Payroll Service
+|
+v
+Payroll Database
+
+A new employee event resulted in automatic payroll creation.
+
+### Conceptual / Operational Topics
+
+The documentation also covers:
+
+- Consumer lag
+- Offset management
+- Offset reset
+- Event replay
+- Horizontal consumer scaling
+- Retry behavior
+- Dead Letter Topics
+- At-least-once processing
+
+These concepts are important for understanding how the implementation behaves in larger production environments.
+
+
+## 43. Kafka Scalability
+
+Kafka supports horizontal scaling through partitions and consumer groups.
+
+For example:
+
+Topic
+|
++---- Partition 0
+|
++---- Partition 1
+|
++---- Partition 2
+
+A consumer group can have multiple instances:
+
+worksphere-payroll-group
+
+       |
++---+---+
+|   |   |
+v   v   v
+C1   C2   C3
+
+Kafka can assign different partitions to different consumer instances.
+
+This allows the workload to be processed concurrently.
+
+However, the maximum useful consumer parallelism within a group is constrained by the number of partitions available to that topic.
+
+
+## 44. Kafka Event-Driven Architecture Benefits
+
+The WorkSphere Kafka implementation provides several architectural benefits.
+
+### Loose Coupling
+
+Employee Service does not need direct knowledge of every downstream operation.
+
+### Asynchronous Processing
+
+Payroll and Leave processing can occur independently after the employee event is published.
+
+### Independent Scaling
+
+Payroll and Leave consumers can be scaled independently.
+
+### Resilience
+
+Retry and DLT mechanisms provide a way to handle processing failures.
+
+### Replay
+
+Kafka offsets allow consumers to replay retained events when required.
+
+### Extensibility
+
+Additional services can consume the same event using their own consumer group.
+
+For example, a future service could consume:
+
+employee-created
+
+for another independent business process without modifying Employee Service's publishing logic.
+
+
+## 45. Interview Explanation
+
+A concise interview explanation of the WorkSphere Kafka implementation is:
+
+In WorkSphere, I used Apache Kafka for asynchronous communication between microservices.
+
+When an employee is created, Employee Service publishes an EmployeeCreatedEvent to the employee-created topic.
+
+The employee ID is used as the Kafka message key, which helps keep events for the same employee associated with the same partition.
+
+Payroll Service consumes the event using the worksphere-payroll-group consumer group and automatically creates the initial payroll record.
+
+Leave Service independently consumes the same event using a separate worksphere-leave-group consumer group and initializes the employee's leave balances.
+
+The producer uses StringSerializer and JsonSerializer, while the consumer uses JsonDeserializer with the WorkSphere Kafka event package configured as trusted.
+
+For reliability, Payroll and Leave consumers use retry and DLT handling.
+
+Payroll also has an idempotency check and a database unique constraint on employee_id to prevent duplicate payroll records.
+
+For Docker, applications inside the Docker network connect to Kafka using kafka:9092, while host-based access uses the external listener localhost:29092.
+
+This gives WorkSphere asynchronous processing, loose coupling, independent consumer scaling, retry handling, and the ability to replay events using Kafka offsets.
+
+
+## 46. Final Architecture
+
+The current WorkSphere Kafka architecture can be summarized as:
+
+                         +------------------+
+                         |      Client      |
+                         +--------+---------+
+                                  |
+                                  | REST
+                                  v
+                         +------------------+
+                         | Employee Service |
+                         +--------+---------+
+                                  |
+                                  | EmployeeCreatedEvent
+                                  | Key = employeeId
+                                  v
+                         +------------------+
+                         |      Kafka       |
+                         | employee-created |
+                         +--------+---------+
+                                  |
+                     +------------+------------+
+                     |                         |
+                     |                         |
+                     v                         v
+          +-------------------+      +-------------------+
+          |  Payroll Service  |      |   Leave Service   |
+          |                   |      |                   |
+          | payroll-group     |      | leave-group       |
+          +---------+---------+      +---------+---------+
+                    |                          |
+                    v                          v
+          +-------------------+      +-------------------+
+          | Payroll Database  |      |  Leave Database   |
+          +-------------------+      +-------------------+
+
+The complete event-driven flow is:
+
+Employee creation
+|
+v
+Employee Service
+|
+| EmployeeCreatedEvent
+v
+Kafka topic: employee-created
+|
++--------------------------+
+|                          |
+v                          v
+Payroll Service              Leave Service
+|                          |
+v                          v
+Create Payroll             Initialize Leave
+Balances
+
+The key architectural idea is that Employee Service publishes a business event, while downstream services independently decide how to react to that event.
+
+This keeps the services loosely coupled and allows WorkSphere to evolve by adding new event consumers without requiring the Employee Service to synchronously call every downstream service.
