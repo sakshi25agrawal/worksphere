@@ -9,11 +9,57 @@ spring:
     gateway:
       server:
         webflux:
+          routes:
 
-          discovery:
-            locator:
-              enabled: true
-              lower-case-service-id: true
+            # ==========================================================
+            # Auth Service
+            # ==========================================================
+            - id: auth-service
+              uri: lb://AUTH-SERVICE
+              predicates:
+                - Path=/auth-service/**
+              filters:
+                - StripPrefix=1
+
+            # ==========================================================
+            # Employee Service
+            # ==========================================================
+            - id: employee-service
+              uri: lb://EMPLOYEE-SERVICE
+              predicates:
+                - Path=/employee-service/**
+              filters:
+                - StripPrefix=1
+
+            # ==========================================================
+            # Department Service
+            # ==========================================================
+            - id: department-service
+              uri: lb://DEPARTMENT-SERVICE
+              predicates:
+                - Path=/department-service/**
+              filters:
+                - StripPrefix=1
+
+            # ==========================================================
+            # Payroll Service
+            # ==========================================================
+            - id: payroll-service
+              uri: lb://PAYROLL-SERVICE
+              predicates:
+                - Path=/payroll-service/**
+              filters:
+                - StripPrefix=1
+
+            # ==========================================================
+            # Leave Service
+            # ==========================================================
+            - id: leave-service
+              uri: lb://LEAVE-SERVICE
+              predicates:
+                - Path=/leave-service/**
+              filters:
+                - StripPrefix=1
 
 eureka:
   client:
