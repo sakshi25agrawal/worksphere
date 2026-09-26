@@ -272,7 +272,7 @@ public class LeaveServiceImpl implements LeaveService {
 
         try {
             employeeFeignClient.getEmployeeById(employeeId);
-        } catch (Exception exception) {
+        } catch (feign.FeignException.NotFound exception) {
             throw new EmployeeNotFoundException(employeeId);
         }
     }
